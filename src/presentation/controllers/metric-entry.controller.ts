@@ -9,18 +9,20 @@ export class MetricEntryController {
   ) {}
 
   log = async (req: Request, res: Response): Promise<void> => {
-    const entry = await this.logMetricEntryUseCase.execute(req.body);
+    const userId = req.user!.id;
+    const entry = await this.logMetricEntryUseCase.execute(userId, req.body);
     res.status(201).json(entry.toJSON());
   };
 
   history = async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user!.id;
     const { metricId } = req.params;
     if (typeof metricId !== 'string' || metricId.length === 0) {
       res.status(400).json({ message: 'metricId route param is required' });
       return;
     }
 
-    const entries = await this.getMetricHistoryUseCase.execute(metricId);
+    const entries = await this.getMetricHistoryUseCase.execute(userId, metricId);
     res.status(200).json(entries.map((entry) => entry.toJSON()));
   };
 }

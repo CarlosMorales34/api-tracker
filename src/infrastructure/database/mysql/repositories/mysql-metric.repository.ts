@@ -4,6 +4,7 @@ import { MetricRepository } from '../../../../domain/repositories/metric.reposit
 
 interface MetricRow extends RowDataPacket {
   id: string;
+  user_id: string;
   name: string;
   unit: MetricUnit;
   created_at: Date;
@@ -13,11 +14,11 @@ export class MysqlMetricRepository implements MetricRepository {
   constructor(private readonly pool: Pool) {}
 
   async save(metric: Metric): Promise<void> {
-    const { id, name, unit, createdAt } = metric.toJSON();
+    const { id, userId, name, unit, createdAt } = metric.toJSON();
     await this.pool.query(
-      `INSERT INTO metrics (id, name, unit, created_at) VALUES (?, ?, ?, ?)
+      `INSERT INTO metrics (id, user_id, name, unit, created_at) VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE name = VALUES(name), unit = VALUES(unit)`,
-      [id, name, unit, createdAt],
+      [id, userId, name, unit, createdAt],
     );
   }
 
@@ -27,14 +28,18 @@ export class MysqlMetricRepository implements MetricRepository {
     return row ? this.toEntity(row) : null;
   }
 
-  async findAll(): Promise<Metric[]> {
-    const [rows] = await this.pool.query<MetricRow[]>('SELECT * FROM metrics ORDER BY created_at DESC');
+  async findAllByUserId(userId: string, limit: number, offset: number): Promise<Metric[]> {
+    const [rows] = await this.pool.query<MetricRow[]>(
+      'SELECT * FROM metrics WHERE user_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [userId, limit, offset],
+    );
     return rows.map((row) => this.toEntity(row));
   }
 
   private toEntity(row: MetricRow): Metric {
     return Metric.fromPersistence({
       id: row.id,
+      userId: row.user_id,
       name: row.name,
       unit: row.unit,
       createdAt: new Date(row.created_at),

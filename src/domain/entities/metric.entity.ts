@@ -2,6 +2,7 @@ export type MetricUnit = 'kg' | 'lb' | 'cm' | 'min' | 'reps' | 'count' | 'percen
 
 export interface MetricProps {
   id: string;
+  userId: string;
   name: string;
   unit: MetricUnit;
   createdAt: Date;
@@ -10,9 +11,12 @@ export interface MetricProps {
 export class Metric {
   private constructor(private readonly props: MetricProps) {}
 
-  static create(props: { id: string; name: string; unit: MetricUnit }): Metric {
+  static create(props: { id: string; userId: string; name: string; unit: MetricUnit }): Metric {
     if (!props.name.trim()) {
       throw new Error('Metric name cannot be empty');
+    }
+    if (!props.userId) {
+      throw new Error('Metric userId is required');
     }
 
     return new Metric({ ...props, createdAt: new Date() });
@@ -24,6 +28,10 @@ export class Metric {
 
   get id(): string {
     return this.props.id;
+  }
+
+  get userId(): string {
+    return this.props.userId;
   }
 
   get name(): string {

@@ -1,9 +1,4 @@
-CREATE TABLE IF NOT EXISTS metrics (
-  id CHAR(36) PRIMARY KEY,
-  name VARCHAR(120) NOT NULL,
-  unit VARCHAR(20) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+USE vitalis;
 
 CREATE TABLE IF NOT EXISTS metric_entries (
   id CHAR(36) PRIMARY KEY,
@@ -15,4 +10,4 @@ CREATE TABLE IF NOT EXISTS metric_entries (
     FOREIGN KEY (metric_id) REFERENCES metrics (id)
     ON DELETE CASCADE,
   INDEX idx_metric_entries_metric_id (metric_id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

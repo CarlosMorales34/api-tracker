@@ -11,9 +11,12 @@ export class LogMetricEntryUseCase {
     private readonly metricEntryRepository: MetricEntryRepository,
   ) {}
 
-  async execute(dto: LogMetricEntryDto): Promise<MetricEntry> {
+  async execute(userId: string, dto: LogMetricEntryDto): Promise<MetricEntry> {
     const metric = await this.metricRepository.findById(dto.metricId);
-    if (!metric) {
+    // 404 (not 403) when the metric doesn't belong to userId — same response as
+    // a truly nonexistent metric, so we don't leak that the id exists but
+    // belongs to someone else.
+    if (!metric || metric.userId !== userId) {
       throw new NotFoundError('Metric', dto.metricId);
     }
 

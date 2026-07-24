@@ -9,9 +9,11 @@ export class GetMetricHistoryUseCase {
     private readonly metricEntryRepository: MetricEntryRepository,
   ) {}
 
-  async execute(metricId: string): Promise<MetricEntry[]> {
+  async execute(userId: string, metricId: string): Promise<MetricEntry[]> {
     const metric = await this.metricRepository.findById(metricId);
-    if (!metric) {
+    // 404 (not 403) when the metric doesn't belong to userId — see same note
+    // in LogMetricEntryUseCase.
+    if (!metric || metric.userId !== userId) {
       throw new NotFoundError('Metric', metricId);
     }
 

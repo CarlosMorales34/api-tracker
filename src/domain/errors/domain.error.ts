@@ -11,3 +11,17 @@ export class NotFoundError extends DomainError {
     this.name = 'NotFoundError';
   }
 }
+
+export class ConflictError extends DomainError {
+  constructor(entity: string, identifier: string) {
+    super(`${entity} with identifier "${identifier}" already exists`);
+    this.name = 'ConflictError';
+  }
+}
+
+export class UnauthorizedError extends DomainError {
+  constructor(message = 'Unauthorized') {
+    super(message);
+    this.name = 'UnauthorizedError';
+  }
+}
