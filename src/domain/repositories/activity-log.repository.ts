@@ -1,0 +1,10 @@
+import { ActivityLog, ActivityLogDetail } from '../entities/activity-log.entity';
+
+export interface ActivityLogRepository {
+  // GET /api/activity-logs — join contra activities->activity_categories
+  // solo para filtrar por dueño (activity_logs no tiene user_id propio).
+  findByUserAndDateRange(userId: string, from: string, to: string): Promise<ActivityLog[]>;
+  // Registro Semanal necesita nombre de actividad y categoría (color incluido)
+  // para categoryDistribution/topActivities — vista más rica que la anterior.
+  findDetailedByUserAndDateRange(userId: string, from: string, to: string): Promise<ActivityLogDetail[]>;
+}

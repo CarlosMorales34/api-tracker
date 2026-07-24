@@ -11,3 +11,6 @@ credentials.json
 *.log
 .DS_Store
 .arch-index/
+*sql
+*trace
+*trace-build
