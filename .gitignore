@@ -11,7 +11,7 @@ credentials.json
 *.log
 .DS_Store
 .arch-index/
-*sql
+*.sql
 *trace
 *trace-build
 *vscode
