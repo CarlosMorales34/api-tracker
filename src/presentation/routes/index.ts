@@ -12,6 +12,7 @@ import { WeightController } from '../controllers/weight.controller';
 import { WeeklyLogController } from '../controllers/weekly-log.controller';
 import { HomeController } from '../controllers/home.controller';
 import { CreditCardController } from '../controllers/credit-card.controller';
+import { WorkoutController } from '../controllers/workout.controller';
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { authRateLimiter } from '../middlewares/rate-limiters.middleware';
 import { authRoutes } from './auth.routes';
@@ -27,6 +28,7 @@ import { weightRoutes } from './weight.routes';
 import { weeklyLogRoutes } from './weekly-log.routes';
 import { homeRoutes } from './home.routes';
 import { creditCardRoutes } from './credit-card.routes';
+import { workoutRoutes } from './workout.routes';
 
 export interface ApiRoutesDeps {
   authController: AuthController;
@@ -42,6 +44,7 @@ export interface ApiRoutesDeps {
   weeklyLogController: WeeklyLogController;
   homeController: HomeController;
   creditCardController: CreditCardController;
+  workoutController: WorkoutController;
   authenticateMiddleware: RequestHandler;
   idempotencyRepository: IdempotencyRepository;
 }
@@ -86,6 +89,7 @@ export function apiRoutes(deps: ApiRoutesDeps): Router {
     '/credit-cards',
     creditCardRoutes(deps.creditCardController, deps.authenticateMiddleware, deps.idempotencyRepository),
   );
+  router.use('/workouts', workoutRoutes(deps.workoutController, deps.authenticateMiddleware));
 
   return router;
 }
