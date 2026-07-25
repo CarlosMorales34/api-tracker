@@ -22,10 +22,16 @@ interface WorkoutExerciseRow extends RowDataPacket {
   weight: number | null;
   sets: number;
   // MariaDB's JSON type is a LONGTEXT alias (no native JSON wire type), so
-  // mysql2 returns it as a raw string instead of auto-parsing -- must parse
-  // by hand, same gotcha class as the affectedRows issue found earlier.
-  reps: string;
+  // mysql2 returns it as a raw string instead of auto-parsing. Real MySQL
+  // (and newer MariaDB with true JSON support) auto-parses it into a real
+  // array instead. Engine-dependent, so this must tolerate both shapes --
+  // see parseReps below.
+  reps: string | number[];
   sort_order: number;
+}
+
+function parseReps(value: string | number[]): number[] {
+  return Array.isArray(value) ? value : (JSON.parse(value) as number[]);
 }
 
 export class MysqlWorkoutRepository implements WorkoutRepository {
@@ -113,7 +119,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     return rows.map((row) => ({
       workoutDate: row.workout_date as string,
       weight: row.weight === null ? null : Number(row.weight),
-      totalReps: (JSON.parse(row.reps as string) as number[]).reduce((sum, r) => sum + r, 0),
+      totalReps: parseReps(row.reps as string | number[]).reduce((sum, r) => sum + r, 0),
     }));
   }
 
@@ -147,7 +153,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
           name: row.name,
           weight: row.weight === null ? null : Number(row.weight),
           sets: row.sets,
-          reps: JSON.parse(row.reps) as number[],
+          reps: parseReps(row.reps),
           sortOrder: row.sort_order,
         }),
       );
