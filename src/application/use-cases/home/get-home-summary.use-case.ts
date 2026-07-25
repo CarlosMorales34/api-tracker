@@ -4,7 +4,7 @@ import { WeightEntryRepository } from '../../../domain/repositories/weight-entry
 import { WeightSettingsRepository } from '../../../domain/repositories/weight-settings.repository';
 import { DEFAULT_WEIGHT_SETTINGS } from '../../../domain/entities/weight-settings.entity';
 import { GetWeeklyLogWeekUseCase, CategoryHoursItem } from '../weekly-log/get-weekly-log-week.use-case';
-import { addDaysUTC, formatDateOnly, getWeekNumberForDate, todayDateOnly } from '../../../shared/utils/week';
+import { addDaysUTC, formatDateOnly, getWeekNumberForDate, parseDateOnly, todayDateOnly } from '../../../shared/utils/week';
 
 const STREAK_LOOKBACK_DAYS = 120;
 
@@ -38,7 +38,7 @@ export class GetHomeSummaryUseCase {
   ) {}
 
   async execute(userId: string): Promise<HomeSummary> {
-    const today = new Date();
+    const today = parseDateOnly(todayDateOnly());
     const { year: weekYear, weekNumber } = getWeekNumberForDate(today);
     const currentYear = today.getUTCFullYear();
     const currentMonth = today.getUTCMonth() + 1;
@@ -85,12 +85,13 @@ export class GetHomeSummaryUseCase {
 
   private async computeStreak(userId: string): Promise<number> {
     const today = todayDateOnly();
-    const from = formatDateOnly(addDaysUTC(new Date(), -STREAK_LOOKBACK_DAYS));
+    const todayDate = parseDateOnly(today);
+    const from = formatDateOnly(addDaysUTC(todayDate, -STREAK_LOOKBACK_DAYS));
     const logs = await this.activityLogRepository.findByUserAndDateRange(userId, from, today);
     const daysWithLogs = new Set(logs.map((log) => log.logDate));
 
     let streak = 0;
-    let cursor = new Date();
+    let cursor = todayDate;
     for (;;) {
       const cursorDateOnly = formatDateOnly(cursor);
       if (!daysWithLogs.has(cursorDateOnly)) break;
