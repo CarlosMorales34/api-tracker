@@ -16,6 +16,7 @@ import { FixedRoutineController } from '../../../presentation/controllers/fixed-
 import { ActivityLogController } from '../../../presentation/controllers/activity-log.controller';
 import { FinanceController } from '../../../presentation/controllers/finance.controller';
 import { ExpensesController } from '../../../presentation/controllers/expenses.controller';
+import { CreditCardController } from '../../../presentation/controllers/credit-card.controller';
 import { WeightController } from '../../../presentation/controllers/weight.controller';
 import { WeeklyLogController } from '../../../presentation/controllers/weekly-log.controller';
 import { HomeController } from '../../../presentation/controllers/home.controller';
@@ -29,13 +30,17 @@ import { MysqlIdempotencyRepository } from '../../database/mysql/repositories/my
 import { MysqlActivityCategoryRepository } from '../../database/mysql/repositories/mysql-activity-category.repository';
 import { MysqlActivityRepository } from '../../database/mysql/repositories/mysql-activity.repository';
 import { MysqlFixedRoutineRepository } from '../../database/mysql/repositories/mysql-fixed-routine.repository';
+import { MysqlRoutineLogRepository } from '../../database/mysql/repositories/mysql-routine-log.repository';
 import { MysqlActivityLogRepository } from '../../database/mysql/repositories/mysql-activity-log.repository';
 import { MysqlMoneyEntryRepository } from '../../database/mysql/repositories/mysql-money-entry.repository';
 import { MysqlFinanceSettingsRepository } from '../../database/mysql/repositories/mysql-finance-settings.repository';
 import { MysqlFinanceDebtPaymentRepository } from '../../database/mysql/repositories/mysql-finance-debt-payment.repository';
 import { MysqlFinanceSavingsRepository } from '../../database/mysql/repositories/mysql-finance-savings.repository';
+import { MysqlFinanceAnnualIncomeRepository } from '../../database/mysql/repositories/mysql-finance-annual-income.repository';
 import { MysqlDailyExpenseRepository } from '../../database/mysql/repositories/mysql-daily-expense.repository';
 import { MysqlFixedMonthlyExpenseRepository } from '../../database/mysql/repositories/mysql-fixed-monthly-expense.repository';
+import { MysqlFixedExpenseChargeRepository } from '../../database/mysql/repositories/mysql-fixed-expense-charge.repository';
+import { MysqlCreditCardRepository } from '../../database/mysql/repositories/mysql-credit-card.repository';
 import { MysqlWeightEntryRepository } from '../../database/mysql/repositories/mysql-weight-entry.repository';
 import { MysqlWeightSettingsRepository } from '../../database/mysql/repositories/mysql-weight-settings.repository';
 import { MysqlAnnualCounterRepository } from '../../database/mysql/repositories/mysql-annual-counter.repository';
@@ -47,11 +52,18 @@ import { LogMetricEntryUseCase } from '../../../application/use-cases/metric-ent
 import { GetMetricHistoryUseCase } from '../../../application/use-cases/metric-entry/get-metric-history.use-case';
 import { CreateActivityCategoryUseCase } from '../../../application/use-cases/activity-category/create-activity-category.use-case';
 import { ListActivityCategoriesUseCase } from '../../../application/use-cases/activity-category/list-activity-categories.use-case';
+import { ReorderActivityCategoriesUseCase } from '../../../application/use-cases/activity-category/reorder-activity-categories.use-case';
 import { CreateActivityUseCase } from '../../../application/use-cases/activity/create-activity.use-case';
 import { ListActivitiesUseCase } from '../../../application/use-cases/activity/list-activities.use-case';
+import { ListActivitiesForDateUseCase } from '../../../application/use-cases/activity/list-activities-for-date.use-case';
+import { ReorderActivitiesUseCase } from '../../../application/use-cases/activity/reorder-activities.use-case';
+import { PutActivityLogUseCase } from '../../../application/use-cases/activity-log/put-activity-log.use-case';
 import { CreateFixedRoutineUseCase } from '../../../application/use-cases/fixed-routine/create-fixed-routine.use-case';
 import { ListFixedRoutinesUseCase } from '../../../application/use-cases/fixed-routine/list-fixed-routines.use-case';
+import { ListFixedRoutinesForDateUseCase } from '../../../application/use-cases/fixed-routine/list-fixed-routines-for-date.use-case';
 import { DeleteFixedRoutineUseCase } from '../../../application/use-cases/fixed-routine/delete-fixed-routine.use-case';
+import { PutRoutineLogUseCase } from '../../../application/use-cases/fixed-routine/put-routine-log.use-case';
+import { UpdateFixedRoutineUseCase } from '../../../application/use-cases/fixed-routine/update-fixed-routine.use-case';
 import { ListActivityLogsUseCase } from '../../../application/use-cases/activity-log/list-activity-logs.use-case';
 import { GetFinanceSettingsUseCase } from '../../../application/use-cases/finance/get-finance-settings.use-case';
 import { UpdateFinanceSettingsUseCase } from '../../../application/use-cases/finance/update-finance-settings.use-case';
@@ -61,6 +73,9 @@ import { UpdateMoneyEntryUseCase } from '../../../application/use-cases/finance/
 import { DeleteMoneyEntryUseCase } from '../../../application/use-cases/finance/delete-money-entry.use-case';
 import { CreateDebtPaymentUseCase } from '../../../application/use-cases/finance/create-debt-payment.use-case';
 import { CreateSavingsEntryUseCase } from '../../../application/use-cases/finance/create-savings-entry.use-case';
+import { ListFinanceAnnualIncomeUseCase } from '../../../application/use-cases/finance/list-finance-annual-income.use-case';
+import { UpsertFinanceAnnualIncomeUseCase } from '../../../application/use-cases/finance/upsert-finance-annual-income.use-case';
+import { DeleteFinanceAnnualIncomeUseCase } from '../../../application/use-cases/finance/delete-finance-annual-income.use-case';
 import { ListDailyExpensesUseCase } from '../../../application/use-cases/expenses/list-daily-expenses.use-case';
 import { CreateDailyExpenseUseCase } from '../../../application/use-cases/expenses/create-daily-expense.use-case';
 import { UpdateDailyExpenseUseCase } from '../../../application/use-cases/expenses/update-daily-expense.use-case';
@@ -70,6 +85,11 @@ import { CreateFixedExpenseUseCase } from '../../../application/use-cases/expens
 import { UpdateFixedExpenseUseCase } from '../../../application/use-cases/expenses/update-fixed-expense.use-case';
 import { DeleteFixedExpenseUseCase } from '../../../application/use-cases/expenses/delete-fixed-expense.use-case';
 import { GetExpensesSummaryUseCase } from '../../../application/use-cases/expenses/get-expenses-summary.use-case';
+import { CreateCreditCardUseCase } from '../../../application/use-cases/credit-card/create-credit-card.use-case';
+import { ListCreditCardsUseCase } from '../../../application/use-cases/credit-card/list-credit-cards.use-case';
+import { UpdateCreditCardUseCase } from '../../../application/use-cases/credit-card/update-credit-card.use-case';
+import { DeleteCreditCardUseCase } from '../../../application/use-cases/credit-card/delete-credit-card.use-case';
+import { SetWalletBalanceUseCase } from '../../../application/use-cases/finance/set-wallet-balance.use-case';
 import { GetWeightYearUseCase } from '../../../application/use-cases/weight/get-weight-year.use-case';
 import { PutWeightMonthUseCase } from '../../../application/use-cases/weight/put-weight-month.use-case';
 import { PutWeightMonthNoteUseCase } from '../../../application/use-cases/weight/put-weight-month-note.use-case';
@@ -103,13 +123,17 @@ export function createServer(pool: Pool): Express {
   const activityCategoryRepository = new MysqlActivityCategoryRepository(pool);
   const activityRepository = new MysqlActivityRepository(pool);
   const fixedRoutineRepository = new MysqlFixedRoutineRepository(pool);
+  const routineLogRepository = new MysqlRoutineLogRepository(pool);
   const activityLogRepository = new MysqlActivityLogRepository(pool);
   const moneyEntryRepository = new MysqlMoneyEntryRepository(pool);
   const financeSettingsRepository = new MysqlFinanceSettingsRepository(pool);
   const financeDebtPaymentRepository = new MysqlFinanceDebtPaymentRepository(pool);
   const financeSavingsRepository = new MysqlFinanceSavingsRepository(pool);
+  const financeAnnualIncomeRepository = new MysqlFinanceAnnualIncomeRepository(pool);
   const dailyExpenseRepository = new MysqlDailyExpenseRepository(pool);
   const fixedMonthlyExpenseRepository = new MysqlFixedMonthlyExpenseRepository(pool);
+  const fixedExpenseChargeRepository = new MysqlFixedExpenseChargeRepository(pool);
+  const creditCardRepository = new MysqlCreditCardRepository(pool);
   const weightEntryRepository = new MysqlWeightEntryRepository(pool);
   const weightSettingsRepository = new MysqlWeightSettingsRepository(pool);
   const annualCounterRepository = new MysqlAnnualCounterRepository(pool);
@@ -132,11 +156,25 @@ export function createServer(pool: Pool): Express {
 
   const createActivityCategoryUseCase = new CreateActivityCategoryUseCase(activityCategoryRepository);
   const listActivityCategoriesUseCase = new ListActivityCategoriesUseCase(activityCategoryRepository);
+  const reorderActivityCategoriesUseCase = new ReorderActivityCategoriesUseCase(activityCategoryRepository);
   const createActivityUseCase = new CreateActivityUseCase(activityCategoryRepository, activityRepository);
   const listActivitiesUseCase = new ListActivitiesUseCase(activityCategoryRepository, activityRepository);
+  const listActivitiesForDateUseCase = new ListActivitiesForDateUseCase(listActivitiesUseCase, activityLogRepository);
+  const reorderActivitiesUseCase = new ReorderActivitiesUseCase(activityCategoryRepository, activityRepository);
+  const putActivityLogUseCase = new PutActivityLogUseCase(
+    activityRepository,
+    activityCategoryRepository,
+    activityLogRepository,
+  );
   const createFixedRoutineUseCase = new CreateFixedRoutineUseCase(fixedRoutineRepository);
   const listFixedRoutinesUseCase = new ListFixedRoutinesUseCase(fixedRoutineRepository);
+  const listFixedRoutinesForDateUseCase = new ListFixedRoutinesForDateUseCase(
+    fixedRoutineRepository,
+    routineLogRepository,
+  );
   const deleteFixedRoutineUseCase = new DeleteFixedRoutineUseCase(fixedRoutineRepository);
+  const putRoutineLogUseCase = new PutRoutineLogUseCase(fixedRoutineRepository, routineLogRepository);
+  const updateFixedRoutineUseCase = new UpdateFixedRoutineUseCase(fixedRoutineRepository);
 
   const listActivityLogsUseCase = new ListActivityLogsUseCase(activityLogRepository);
 
@@ -147,17 +185,32 @@ export function createServer(pool: Pool): Express {
     financeSettingsRepository,
     financeDebtPaymentRepository,
     financeSavingsRepository,
+    dailyExpenseRepository,
+    fixedMonthlyExpenseRepository,
+    fixedExpenseChargeRepository,
   );
-  const createMoneyEntryUseCase = new CreateMoneyEntryUseCase(moneyEntryRepository);
-  const updateMoneyEntryUseCase = new UpdateMoneyEntryUseCase(moneyEntryRepository);
-  const deleteMoneyEntryUseCase = new DeleteMoneyEntryUseCase(moneyEntryRepository);
+  const createMoneyEntryUseCase = new CreateMoneyEntryUseCase(moneyEntryRepository, financeSettingsRepository);
+  const updateMoneyEntryUseCase = new UpdateMoneyEntryUseCase(moneyEntryRepository, financeSettingsRepository);
+  const deleteMoneyEntryUseCase = new DeleteMoneyEntryUseCase(moneyEntryRepository, financeSettingsRepository);
   const createDebtPaymentUseCase = new CreateDebtPaymentUseCase(financeDebtPaymentRepository);
   const createSavingsEntryUseCase = new CreateSavingsEntryUseCase(financeSavingsRepository);
+  const listFinanceAnnualIncomeUseCase = new ListFinanceAnnualIncomeUseCase(
+    financeAnnualIncomeRepository,
+    moneyEntryRepository,
+  );
+  const upsertFinanceAnnualIncomeUseCase = new UpsertFinanceAnnualIncomeUseCase(financeAnnualIncomeRepository);
+  const deleteFinanceAnnualIncomeUseCase = new DeleteFinanceAnnualIncomeUseCase(financeAnnualIncomeRepository);
+  const setWalletBalanceUseCase = new SetWalletBalanceUseCase(financeSettingsRepository);
+
+  const createCreditCardUseCase = new CreateCreditCardUseCase(creditCardRepository);
+  const listCreditCardsUseCase = new ListCreditCardsUseCase(creditCardRepository);
+  const updateCreditCardUseCase = new UpdateCreditCardUseCase(creditCardRepository);
+  const deleteCreditCardUseCase = new DeleteCreditCardUseCase(creditCardRepository);
 
   const listDailyExpensesUseCase = new ListDailyExpensesUseCase(dailyExpenseRepository);
-  const createDailyExpenseUseCase = new CreateDailyExpenseUseCase(dailyExpenseRepository);
-  const updateDailyExpenseUseCase = new UpdateDailyExpenseUseCase(dailyExpenseRepository);
-  const deleteDailyExpenseUseCase = new DeleteDailyExpenseUseCase(dailyExpenseRepository);
+  const createDailyExpenseUseCase = new CreateDailyExpenseUseCase(dailyExpenseRepository, financeSettingsRepository);
+  const updateDailyExpenseUseCase = new UpdateDailyExpenseUseCase(dailyExpenseRepository, financeSettingsRepository);
+  const deleteDailyExpenseUseCase = new DeleteDailyExpenseUseCase(dailyExpenseRepository, financeSettingsRepository);
   const listFixedExpensesUseCase = new ListFixedExpensesUseCase(fixedMonthlyExpenseRepository);
   const createFixedExpenseUseCase = new CreateFixedExpenseUseCase(fixedMonthlyExpenseRepository);
   const updateFixedExpenseUseCase = new UpdateFixedExpenseUseCase(fixedMonthlyExpenseRepository);
@@ -202,12 +255,22 @@ export function createServer(pool: Pool): Express {
   const activityCategoryController = new ActivityCategoryController(
     createActivityCategoryUseCase,
     listActivityCategoriesUseCase,
+    reorderActivityCategoriesUseCase,
   );
-  const activityController = new ActivityController(createActivityUseCase, listActivitiesUseCase);
+  const activityController = new ActivityController(
+    createActivityUseCase,
+    listActivitiesUseCase,
+    listActivitiesForDateUseCase,
+    reorderActivitiesUseCase,
+    putActivityLogUseCase,
+  );
   const fixedRoutineController = new FixedRoutineController(
     createFixedRoutineUseCase,
     listFixedRoutinesUseCase,
+    listFixedRoutinesForDateUseCase,
     deleteFixedRoutineUseCase,
+    putRoutineLogUseCase,
+    updateFixedRoutineUseCase,
   );
   const activityLogController = new ActivityLogController(listActivityLogsUseCase);
   const financeController = new FinanceController(
@@ -219,6 +282,16 @@ export function createServer(pool: Pool): Express {
     deleteMoneyEntryUseCase,
     createDebtPaymentUseCase,
     createSavingsEntryUseCase,
+    listFinanceAnnualIncomeUseCase,
+    upsertFinanceAnnualIncomeUseCase,
+    deleteFinanceAnnualIncomeUseCase,
+    setWalletBalanceUseCase,
+  );
+  const creditCardController = new CreditCardController(
+    createCreditCardUseCase,
+    listCreditCardsUseCase,
+    updateCreditCardUseCase,
+    deleteCreditCardUseCase,
   );
   const expensesController = new ExpensesController(
     listDailyExpensesUseCase,
@@ -288,6 +361,7 @@ export function createServer(pool: Pool): Express {
       weightController,
       weeklyLogController,
       homeController,
+      creditCardController,
       authenticateMiddleware,
       idempotencyRepository,
     }),

@@ -4,3 +4,8 @@ export const createActivitySchema = z.object({
   categoryId: z.string().uuid(),
   name: z.string().trim().min(1).max(150),
 });
+
+export const reorderActivitiesSchema = z.object({
+  categoryId: z.string().uuid(),
+  orderedIds: z.array(z.string().uuid()).min(1),
+});

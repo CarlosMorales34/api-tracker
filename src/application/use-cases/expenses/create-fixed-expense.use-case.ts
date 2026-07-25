@@ -7,7 +7,14 @@ export class CreateFixedExpenseUseCase {
   constructor(private readonly fixedMonthlyExpenseRepository: FixedMonthlyExpenseRepository) {}
 
   async execute(userId: string, dto: CreateFixedMonthlyExpenseDto): Promise<FixedMonthlyExpense> {
-    const expense = FixedMonthlyExpense.create({ id: randomUUID(), userId, name: dto.name, amount: dto.amount });
+    const expense = FixedMonthlyExpense.create({
+      id: randomUUID(),
+      userId,
+      name: dto.name,
+      amount: dto.amount,
+      dayOfMonth: dto.dayOfMonth,
+      description: dto.description ?? null,
+    });
     await this.fixedMonthlyExpenseRepository.save(expense);
     return expense;
   }

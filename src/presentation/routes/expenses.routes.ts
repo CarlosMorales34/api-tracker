@@ -30,6 +30,11 @@ const CREATE_FIXED_EXPENSE_ROUTE = 'expenses-fixed:create';
  *         id: { type: string, format: uuid }
  *         name: { type: string }
  *         amount: { type: number }
+ *         dayOfMonth:
+ *           type: integer
+ *           nullable: true
+ *           description: Día del mes (1-31) en que se cobra este gasto fijo.
+ *         description: { type: string, nullable: true }
  *     ExpensesSummary:
  *       type: object
  *       properties:
@@ -215,10 +220,12 @@ export function expensesRoutes(
    *         application/json:
    *           schema:
    *             type: object
-   *             required: [name, amount]
+   *             required: [name, amount, dayOfMonth]
    *             properties:
    *               name: { type: string, maxLength: 150 }
    *               amount: { type: number, exclusiveMinimum: 0 }
+   *               dayOfMonth: { type: integer, minimum: 1, maximum: 31 }
+   *               description: { type: string, maxLength: 280, nullable: true }
    *     responses:
    *       201:
    *         description: Gasto fijo creado
@@ -259,6 +266,8 @@ export function expensesRoutes(
    *             properties:
    *               name: { type: string, maxLength: 150 }
    *               amount: { type: number, exclusiveMinimum: 0 }
+   *               dayOfMonth: { type: integer, minimum: 1, maximum: 31, nullable: true }
+   *               description: { type: string, maxLength: 280, nullable: true }
    *     responses:
    *       200:
    *         description: Gasto fijo actualizado

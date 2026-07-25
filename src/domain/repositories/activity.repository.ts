@@ -6,4 +6,5 @@ export interface ActivityRepository {
   findByCategoryId(categoryId: string): Promise<Activity[]>;
   findAllByUserId(userId: string): Promise<Activity[]>;
   countByCategoryId(categoryId: string): Promise<number>;
+  updateSortOrder(id: string, sortOrder: number): Promise<void>;
 }

@@ -1,4 +1,5 @@
 export type MoneyEntryType = 'income' | 'expense';
+export type MoneyEntryRecurrence = 'unique' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
 
 export interface MoneyEntryProps {
   id: string;
@@ -6,13 +7,22 @@ export interface MoneyEntryProps {
   type: MoneyEntryType;
   name: string;
   amount: number;
+  recurrence: MoneyEntryRecurrence;
   weekStartDate: string;
 }
 
 export class MoneyEntry {
   private constructor(private props: MoneyEntryProps) {}
 
-  static create(props: { id: string; userId: string; type: MoneyEntryType; name: string; amount: number; weekStartDate: string }): MoneyEntry {
+  static create(props: {
+    id: string;
+    userId: string;
+    type: MoneyEntryType;
+    name: string;
+    amount: number;
+    recurrence: MoneyEntryRecurrence;
+    weekStartDate: string;
+  }): MoneyEntry {
     if (!props.name.trim()) {
       throw new Error('MoneyEntry name cannot be empty');
     }
@@ -51,7 +61,11 @@ export class MoneyEntry {
     return this.props.weekStartDate;
   }
 
-  applyUpdate(changes: { name?: string; amount?: number }): void {
+  get recurrence(): MoneyEntryRecurrence {
+    return this.props.recurrence;
+  }
+
+  applyUpdate(changes: { name?: string; amount?: number; recurrence?: MoneyEntryRecurrence }): void {
     if (changes.name !== undefined) {
       if (!changes.name.trim()) {
         throw new Error('MoneyEntry name cannot be empty');
@@ -64,14 +78,25 @@ export class MoneyEntry {
       }
       this.props.amount = changes.amount;
     }
+    if (changes.recurrence !== undefined) {
+      this.props.recurrence = changes.recurrence;
+    }
   }
 
-  toJSON(): { id: string; type: MoneyEntryType; name: string; amount: number; weekStartDate: string } {
+  toJSON(): {
+    id: string;
+    type: MoneyEntryType;
+    name: string;
+    amount: number;
+    recurrence: MoneyEntryRecurrence;
+    weekStartDate: string;
+  } {
     return {
       id: this.props.id,
       type: this.props.type,
       name: this.props.name,
       amount: this.props.amount,
+      recurrence: this.props.recurrence,
       weekStartDate: this.props.weekStartDate,
     };
   }

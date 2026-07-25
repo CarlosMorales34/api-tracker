@@ -66,6 +66,24 @@ export class FixedRoutine {
     return this.props.createdAt;
   }
 
+  applyUpdate(changes: { name?: string; icon?: string; type?: FixedRoutineType }): void {
+    if (changes.name !== undefined) {
+      if (!changes.name.trim()) {
+        throw new Error('FixedRoutine name cannot be empty');
+      }
+      this.props.name = changes.name;
+    }
+    if (changes.icon !== undefined) {
+      if (!changes.icon.trim()) {
+        throw new Error('FixedRoutine icon cannot be empty');
+      }
+      this.props.icon = changes.icon;
+    }
+    if (changes.type !== undefined) {
+      this.props.type = changes.type;
+    }
+  }
+
   toJSON(): { id: string; name: string; icon: string; type: FixedRoutineType; sortOrder: number } {
     return {
       id: this.props.id,

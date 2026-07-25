@@ -1,11 +1,13 @@
 import { Request, Response } from 'express';
 import { CreateActivityCategoryUseCase } from '../../application/use-cases/activity-category/create-activity-category.use-case';
 import { ListActivityCategoriesUseCase } from '../../application/use-cases/activity-category/list-activity-categories.use-case';
+import { ReorderActivityCategoriesUseCase } from '../../application/use-cases/activity-category/reorder-activity-categories.use-case';
 
 export class ActivityCategoryController {
   constructor(
     private readonly createActivityCategoryUseCase: CreateActivityCategoryUseCase,
     private readonly listActivityCategoriesUseCase: ListActivityCategoriesUseCase,
+    private readonly reorderActivityCategoriesUseCase: ReorderActivityCategoriesUseCase,
   ) {}
 
   create = async (req: Request, res: Response): Promise<void> => {
@@ -19,5 +21,11 @@ export class ActivityCategoryController {
     const userId = req.user!.id;
     const categories = await this.listActivityCategoriesUseCase.execute(userId);
     res.status(200).json(categories.map((category) => category.toJSON()));
+  };
+
+  reorder = async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user!.id;
+    await this.reorderActivityCategoriesUseCase.execute(userId, req.body.orderedIds);
+    res.status(204).send();
   };
 }

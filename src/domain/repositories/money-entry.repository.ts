@@ -14,4 +14,8 @@ export interface MoneyEntryRepository {
   // Años que tienen al menos un finance_entry -- para no mostrar años "en 0"
   // que en realidad nunca se registraron (distinto de un año con balance 0).
   findDistinctYearsWithEntries(userId: string): Promise<number[]>;
+  // Años con al menos un ingreso -- Finanzas usa esto para saber qué años
+  // del historial anual se calculan en vivo (suma de finance_entries) en vez
+  // de depender de un total capturado a mano.
+  findDistinctYearsWithIncome(userId: string): Promise<number[]>;
 }

@@ -7,6 +7,10 @@ import { UpdateMoneyEntryUseCase } from '../../application/use-cases/finance/upd
 import { DeleteMoneyEntryUseCase } from '../../application/use-cases/finance/delete-money-entry.use-case';
 import { CreateDebtPaymentUseCase } from '../../application/use-cases/finance/create-debt-payment.use-case';
 import { CreateSavingsEntryUseCase } from '../../application/use-cases/finance/create-savings-entry.use-case';
+import { ListFinanceAnnualIncomeUseCase } from '../../application/use-cases/finance/list-finance-annual-income.use-case';
+import { UpsertFinanceAnnualIncomeUseCase } from '../../application/use-cases/finance/upsert-finance-annual-income.use-case';
+import { DeleteFinanceAnnualIncomeUseCase } from '../../application/use-cases/finance/delete-finance-annual-income.use-case';
+import { SetWalletBalanceUseCase } from '../../application/use-cases/finance/set-wallet-balance.use-case';
 import { isValidDateOnly } from '../../shared/utils/week';
 
 export class FinanceController {
@@ -19,6 +23,10 @@ export class FinanceController {
     private readonly deleteMoneyEntryUseCase: DeleteMoneyEntryUseCase,
     private readonly createDebtPaymentUseCase: CreateDebtPaymentUseCase,
     private readonly createSavingsEntryUseCase: CreateSavingsEntryUseCase,
+    private readonly listFinanceAnnualIncomeUseCase: ListFinanceAnnualIncomeUseCase,
+    private readonly upsertFinanceAnnualIncomeUseCase: UpsertFinanceAnnualIncomeUseCase,
+    private readonly deleteFinanceAnnualIncomeUseCase: DeleteFinanceAnnualIncomeUseCase,
+    private readonly setWalletBalanceUseCase: SetWalletBalanceUseCase,
   ) {}
 
   getSettings = async (req: Request, res: Response): Promise<void> => {
@@ -77,5 +85,32 @@ export class FinanceController {
   createSavings = async (req: Request, res: Response): Promise<void> => {
     const entry = await this.createSavingsEntryUseCase.execute(req.user!.id, req.body);
     res.status(201).json(entry);
+  };
+
+  listAnnualIncome = async (req: Request, res: Response): Promise<void> => {
+    const entries = await this.listFinanceAnnualIncomeUseCase.execute(req.user!.id);
+    res.status(200).json(entries);
+  };
+
+  putAnnualIncome = async (req: Request, res: Response): Promise<void> => {
+    const { year, amount } = req.body;
+    const entry = await this.upsertFinanceAnnualIncomeUseCase.execute(req.user!.id, year, amount);
+    res.status(200).json(entry.toJSON());
+  };
+
+  deleteAnnualIncome = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    if (typeof id !== 'string' || id.length === 0) {
+      res.status(400).json({ message: 'id route param is required' });
+      return;
+    }
+
+    await this.deleteFinanceAnnualIncomeUseCase.execute(req.user!.id, id);
+    res.status(204).send();
+  };
+
+  setWallet = async (req: Request, res: Response): Promise<void> => {
+    const settings = await this.setWalletBalanceUseCase.execute(req.user!.id, req.body.balance);
+    res.status(200).json(settings);
   };
 }

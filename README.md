@@ -78,6 +78,9 @@ schemas, códigos de error, el header `Idempotency-Key` donde aplica y
   (`{ name, color }`, `color` en hex `#RRGGBB`). Soporta `Idempotency-Key`.
 - `GET /api/activity-categories` — listar categorías propias, ordenadas por
   `sortOrder` y luego fecha de creación.
+- `PATCH /api/activity-categories/reorder` (`{ orderedIds }`) — reordena las
+  categorías del usuario; `orderedIds` debe contener exactamente los ids de
+  todas sus categorías, en el nuevo orden. `400` si no coincide.
 - `POST /api/activities` — crear una actividad dentro de una categoría propia
   (`{ categoryId, name }`). Soporta `Idempotency-Key`. `404` si `categoryId`
   no existe o no pertenece al usuario.
@@ -85,11 +88,21 @@ schemas, códigos de error, el header `Idempotency-Key` donde aplica y
   `categoryId`, filtra por esa categoría (`404` si no existe o no es del
   usuario); sin él, devuelve todas las actividades de todas las categorías
   del usuario.
+- `PATCH /api/activities/reorder` (`{ categoryId, orderedIds }`) — reordena
+  las actividades dentro de una categoría propia; `orderedIds` debe contener
+  exactamente los ids de todas las actividades de esa categoría. `400` si no
+  coincide, `404` si `categoryId` no es del usuario.
 - `POST /api/fixed-routines` — crear una rutina fija propia
   (`{ name, icon, type }`, `type` es `single` o `range`). Soporta
   `Idempotency-Key`.
-- `GET /api/fixed-routines` — listar rutinas fijas propias, ordenadas por
-  `sortOrder` y luego fecha de creación.
+- `GET /api/fixed-routines?date=` — listar rutinas fijas propias, ordenadas
+  por `sortOrder` y luego fecha de creación. Sin `date`, `times` viene vacío
+  en cada una; con `date` (`YYYY-MM-DD`), trae los horarios capturados
+  (`routine_logs`) para ese día puntual.
+- `PUT /api/fixed-routines/:id/log` (`{ date, times: [{ start, end? }] }`) —
+  registra (o reemplaza) los horarios de una rutina fija en un día puntual;
+  `times` vacío borra el registro de ese día. Rutinas `type=single` aceptan a
+  lo más 1 entrada (`400` si se manda más de una).
 - `DELETE /api/fixed-routines/:id` — eliminar una rutina fija propia → `204`.
   `404` si no existe o no pertenece al usuario.
 
@@ -97,10 +110,6 @@ schemas, códigos de error, el header `Idempotency-Key` donde aplica y
   por actividad en un rango de fechas, del usuario autenticado. Sin endpoint
   de escritura todavía (el front no tiene UI para capturar horas por día) —
   lo usa Registro semanal para calcular productividad/distribución.
-
-`routine_logs`/`routine_log_times` (captura de horas por rutina fija) quedan
-fuera de esta capa por ahora, mismo motivo, aunque las tablas ya existen en
-el schema.
 
 ### Finanzas (protegidos)
 

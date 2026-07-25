@@ -11,6 +11,7 @@ import { ExpensesController } from '../controllers/expenses.controller';
 import { WeightController } from '../controllers/weight.controller';
 import { WeeklyLogController } from '../controllers/weekly-log.controller';
 import { HomeController } from '../controllers/home.controller';
+import { CreditCardController } from '../controllers/credit-card.controller';
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { authRateLimiter } from '../middlewares/rate-limiters.middleware';
 import { authRoutes } from './auth.routes';
@@ -25,6 +26,7 @@ import { expensesRoutes } from './expenses.routes';
 import { weightRoutes } from './weight.routes';
 import { weeklyLogRoutes } from './weekly-log.routes';
 import { homeRoutes } from './home.routes';
+import { creditCardRoutes } from './credit-card.routes';
 
 export interface ApiRoutesDeps {
   authController: AuthController;
@@ -39,6 +41,7 @@ export interface ApiRoutesDeps {
   weightController: WeightController;
   weeklyLogController: WeeklyLogController;
   homeController: HomeController;
+  creditCardController: CreditCardController;
   authenticateMiddleware: RequestHandler;
   idempotencyRepository: IdempotencyRepository;
 }
@@ -79,6 +82,10 @@ export function apiRoutes(deps: ApiRoutesDeps): Router {
     weeklyLogRoutes(deps.weeklyLogController, deps.authenticateMiddleware, deps.idempotencyRepository),
   );
   router.use('/home', homeRoutes(deps.homeController, deps.authenticateMiddleware));
+  router.use(
+    '/credit-cards',
+    creditCardRoutes(deps.creditCardController, deps.authenticateMiddleware, deps.idempotencyRepository),
+  );
 
   return router;
 }

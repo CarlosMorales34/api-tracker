@@ -3,7 +3,7 @@ import { ActivityCategoryController } from '../controllers/activity-category.con
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { idempotency } from '../middlewares/idempotency.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
-import { createActivityCategorySchema } from '../validators/activity-category.validators';
+import { createActivityCategorySchema, reorderActivityCategoriesSchema } from '../validators/activity-category.validators';
 
 const CREATE_ACTIVITY_CATEGORY_ROUTE = 'activity-categories:create';
 
@@ -89,6 +89,36 @@ export function activityCategoryRoutes(
    *         description: Access token faltante, inválido o expirado
    */
   router.get('/', controller.list);
+
+  /**
+   * @openapi
+   * /api/activity-categories/reorder:
+   *   patch:
+   *     tags: [Activity Categories]
+   *     summary: Reordenar las categorías del usuario autenticado
+   *     description: orderedIds debe contener exactamente los ids de todas las categorías del usuario, en el nuevo orden deseado.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [orderedIds]
+   *             properties:
+   *               orderedIds:
+   *                 type: array
+   *                 items: { type: string, format: uuid }
+   *     responses:
+   *       204:
+   *         description: Orden actualizado
+   *       400:
+   *         description: orderedIds no coincide exactamente con las categorías del usuario
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.patch('/reorder', validateBody(reorderActivityCategoriesSchema), controller.reorder);
 
   return router;
 }
