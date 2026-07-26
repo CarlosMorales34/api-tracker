@@ -7,6 +7,7 @@ const EXERCISE_HISTORY_LIMIT = 12;
 export interface SessionVolumePoint {
   workoutDate: string;
   volume: number;
+  exercises: { name: string; weight: number | null; sets: number; reps: number[] }[];
 }
 
 export interface ExercisePerformanceSeries {
@@ -29,7 +30,11 @@ export class GetWorkoutPerformanceUseCase {
     const recentWorkouts = await this.workoutRepository.findRecentByUser(userId, RECENT_SESSIONS_LIMIT);
     const sessions = [...recentWorkouts]
       .sort((a, b) => a.workoutDate.localeCompare(b.workoutDate))
-      .map((w) => ({ workoutDate: w.workoutDate, volume: w.totalVolume }));
+      .map((w) => ({
+        workoutDate: w.workoutDate,
+        volume: w.totalVolume,
+        exercises: w.exercises.map((ex) => ex.toJSON()),
+      }));
 
     const exerciseNames = await this.workoutRepository.findDistinctExerciseNames(userId, RECENT_EXERCISES_LIMIT);
     const exercises = await Promise.all(
