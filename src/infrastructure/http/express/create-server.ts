@@ -111,6 +111,7 @@ import { CreateAnnualCounterUseCase } from '../../../application/use-cases/weekl
 import { DeleteAnnualCounterUseCase } from '../../../application/use-cases/weekly-log/delete-annual-counter.use-case';
 import { RegisterUserUseCase } from '../../../application/use-cases/auth/register-user.use-case';
 import { LoginUserUseCase } from '../../../application/use-cases/auth/login-user.use-case';
+import { LoginWithGoogleUseCase } from '../../../application/use-cases/auth/login-with-google.use-case';
 import { RefreshAccessTokenUseCase } from '../../../application/use-cases/auth/refresh-access-token.use-case';
 import { BcryptPasswordHasher } from '../../security/bcrypt-password-hasher.service';
 import { JwtTokenService } from '../../security/jwt-token.service';
@@ -154,6 +155,7 @@ export function createServer(pool: Pool): Express {
   // --- Use cases ---
   const registerUserUseCase = new RegisterUserUseCase(userRepository, passwordHasher, tokenService);
   const loginUserUseCase = new LoginUserUseCase(userRepository, passwordHasher, tokenService);
+  const loginWithGoogleUseCase = new LoginWithGoogleUseCase(userRepository, tokenService, env.google.clientId);
   const refreshAccessTokenUseCase = new RefreshAccessTokenUseCase(tokenService);
 
   const createMetricUseCase = new CreateMetricUseCase(metricRepository);
@@ -261,7 +263,12 @@ export function createServer(pool: Pool): Express {
   const getWorkoutPerformanceUseCase = new GetWorkoutPerformanceUseCase(workoutRepository);
 
   // --- Controllers ---
-  const authController = new AuthController(registerUserUseCase, loginUserUseCase, refreshAccessTokenUseCase);
+  const authController = new AuthController(
+    registerUserUseCase,
+    loginUserUseCase,
+    loginWithGoogleUseCase,
+    refreshAccessTokenUseCase,
+  );
   const metricController = new MetricController(createMetricUseCase, listMetricsUseCase);
   const metricEntryController = new MetricEntryController(logMetricEntryUseCase, getMetricHistoryUseCase);
   const activityCategoryController = new ActivityCategoryController(

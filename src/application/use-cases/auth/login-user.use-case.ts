@@ -23,11 +23,12 @@ export class LoginUserUseCase {
   async execute(dto: LoginUserDto): Promise<LoginUserResult> {
     const user = await this.userRepository.findByEmail(dto.email);
 
-    // Always run bcrypt.compare — against the real hash if the user exists,
-    // against a precomputed dummy hash of the same cost otherwise — so a
-    // missing email and a wrong password take the same amount of time and the
-    // response can't be used to enumerate registered emails.
-    const hashToCompare = user ? user.passwordHash : this.passwordHasher.dummyHash;
+    // Always run bcrypt.compare — against the real hash if the user exists
+    // and has one, against a precomputed dummy hash of the same cost
+    // otherwise (missing user, or a Google-only account with no password) —
+    // so none of those cases can be distinguished by response timing, which
+    // would otherwise let an attacker enumerate registered emails.
+    const hashToCompare = user?.passwordHash ?? this.passwordHasher.dummyHash;
     const passwordMatches = await this.passwordHasher.compare(dto.password, hashToCompare);
 
     if (!user || !passwordMatches) {

@@ -3,7 +3,7 @@ import { AuthController } from '../controllers/auth.controller';
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { idempotency } from '../middlewares/idempotency.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
-import { registerSchema, loginSchema } from '../validators/auth.validators';
+import { registerSchema, loginSchema, googleLoginSchema } from '../validators/auth.validators';
 
 const REGISTER_ROUTE = 'auth:register';
 
@@ -112,6 +112,39 @@ export function authRoutes(controller: AuthController, idempotencyRepository: Id
    *             schema: { $ref: '#/components/schemas/ErrorResponse' }
    */
   router.post('/login', validateBody(loginSchema), controller.login);
+
+  /**
+   * @openapi
+   * /api/auth/google:
+   *   post:
+   *     tags: [Auth]
+   *     summary: Iniciar sesión (o registrarse) con un ID token de Google Identity Services
+   *     description: >
+   *       Si el google_id ya existe, inicia sesión con esa cuenta. Si no existe pero el correo ya
+   *       está registrado con password, vincula la cuenta automáticamente (Google ya verificó ese
+   *       correo). Si el correo no existe, crea una cuenta nueva sin password.
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [idToken]
+   *             properties:
+   *               idToken: { type: string, description: "Credential devuelto por Google Identity Services" }
+   *     responses:
+   *       200:
+   *         description: Sesión iniciada. Además setea la cookie httpOnly `refresh_token`.
+   *         content:
+   *           application/json:
+   *             schema: { $ref: '#/components/schemas/AuthResponse' }
+   *       401:
+   *         description: Token de Google inválido o correo no verificado
+   *         content:
+   *           application/json:
+   *             schema: { $ref: '#/components/schemas/ErrorResponse' }
+   */
+  router.post('/google', validateBody(googleLoginSchema), controller.google);
 
   /**
    * @openapi

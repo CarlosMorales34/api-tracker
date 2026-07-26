@@ -32,4 +32,10 @@ export const env = {
     refreshExpiresIn: required('JWT_REFRESH_EXPIRES_IN', '7d'),
   },
   corsOrigin: required('CORS_ORIGIN', 'http://localhost:3000'),
+  google: {
+    // Client secret no hace falta en el backend con el flujo de ID token
+    // (Google Identity Services) -- solo se verifica la firma del token
+    // contra el Client ID, no se hace intercambio de código.
+    clientId: required('GOOGLE_CLIENT_ID', ''),
+  },
 };
