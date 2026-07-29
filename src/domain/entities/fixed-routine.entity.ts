@@ -6,6 +6,7 @@ export interface FixedRoutineProps {
   name: string;
   icon: string;
   type: FixedRoutineType;
+  linkedActivityId: string | null;
   sortOrder: number;
   createdAt: Date;
 }
@@ -19,6 +20,7 @@ export class FixedRoutine {
     name: string;
     icon: string;
     type: FixedRoutineType;
+    linkedActivityId?: string | null;
     sortOrder: number;
   }): FixedRoutine {
     if (!props.name.trim()) {
@@ -31,7 +33,7 @@ export class FixedRoutine {
       throw new Error('FixedRoutine icon cannot be empty');
     }
 
-    return new FixedRoutine({ ...props, createdAt: new Date() });
+    return new FixedRoutine({ ...props, linkedActivityId: props.linkedActivityId ?? null, createdAt: new Date() });
   }
 
   static fromPersistence(props: FixedRoutineProps): FixedRoutine {
@@ -58,6 +60,10 @@ export class FixedRoutine {
     return this.props.type;
   }
 
+  get linkedActivityId(): string | null {
+    return this.props.linkedActivityId;
+  }
+
   get sortOrder(): number {
     return this.props.sortOrder;
   }
@@ -66,7 +72,12 @@ export class FixedRoutine {
     return this.props.createdAt;
   }
 
-  applyUpdate(changes: { name?: string; icon?: string; type?: FixedRoutineType }): void {
+  applyUpdate(changes: {
+    name?: string;
+    icon?: string;
+    type?: FixedRoutineType;
+    linkedActivityId?: string | null;
+  }): void {
     if (changes.name !== undefined) {
       if (!changes.name.trim()) {
         throw new Error('FixedRoutine name cannot be empty');
@@ -82,14 +93,25 @@ export class FixedRoutine {
     if (changes.type !== undefined) {
       this.props.type = changes.type;
     }
+    if (changes.linkedActivityId !== undefined) {
+      this.props.linkedActivityId = changes.linkedActivityId;
+    }
   }
 
-  toJSON(): { id: string; name: string; icon: string; type: FixedRoutineType; sortOrder: number } {
+  toJSON(): {
+    id: string;
+    name: string;
+    icon: string;
+    type: FixedRoutineType;
+    linkedActivityId: string | null;
+    sortOrder: number;
+  } {
     return {
       id: this.props.id,
       name: this.props.name,
       icon: this.props.icon,
       type: this.props.type,
+      linkedActivityId: this.props.linkedActivityId,
       sortOrder: this.props.sortOrder,
     };
   }

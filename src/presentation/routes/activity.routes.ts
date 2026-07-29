@@ -22,7 +22,21 @@ const CREATE_ACTIVITY_ROUTE = 'activities:create';
  *         todayHours:
  *           type: number
  *           nullable: true
+ *           description: Solo presente cuando la request de listado incluye `date`. Total de todos los turnos del día (manuales + reflejados de una rutina vinculada).
+ *         todayTimes:
+ *           type: array
  *           description: Solo presente cuando la request de listado incluye `date`.
+ *           items: { $ref: '#/components/schemas/ActivityLogTime' }
+ *     ActivityLogTime:
+ *       type: object
+ *       properties:
+ *         start: { type: string, example: '13:00' }
+ *         end: { type: string, example: '14:00' }
+ *         source: { type: string, enum: [manual, routine] }
+ *         routineName:
+ *           type: string
+ *           nullable: true
+ *           description: Nombre de la rutina fija que originó este turno (solo si source=routine).
  */
 export function activityRoutes(
   controller: ActivityController,
@@ -147,8 +161,8 @@ export function activityRoutes(
    * /api/activities/{id}/log:
    *   put:
    *     tags: [Activities]
-   *     summary: Registrar (o reemplazar) las horas de una actividad propia en un día puntual
-   *     description: hours null borra el registro de ese día.
+   *     summary: Registrar (o reemplazar) los turnos manuales de una actividad propia en un día puntual
+   *     description: Reemplaza únicamente los turnos capturados a mano (source=manual); los reflejados de una rutina vinculada (source=routine) no se tocan acá, se editan desde la rutina. times vacío borra los turnos manuales de ese día.
    *     security:
    *       - bearerAuth: []
    *     parameters:
@@ -162,19 +176,30 @@ export function activityRoutes(
    *         application/json:
    *           schema:
    *             type: object
-   *             required: [date, hours]
+   *             required: [date, times]
    *             properties:
    *               date: { type: string, format: date }
-   *               hours: { type: number, exclusiveMinimum: 0, maximum: 24, nullable: true }
+   *               times:
+   *                 type: array
+   *                 maxItems: 8
+   *                 items:
+   *                   type: object
+   *                   required: [start, end]
+   *                   properties:
+   *                     start: { type: string, example: '13:00' }
+   *                     end: { type: string, example: '14:00' }
    *     responses:
    *       200:
-   *         description: Horas guardadas
+   *         description: Turnos guardados, con el total del día ya recalculado
    *         content:
    *           application/json:
    *             schema:
    *               type: object
    *               properties:
    *                 hours: { type: number, nullable: true }
+   *                 times:
+   *                   type: array
+   *                   items: { $ref: '#/components/schemas/ActivityLogTime' }
    *       400:
    *         description: Body inválido
    *       401:

@@ -33,7 +33,11 @@ export class ActivityController {
 
     const activitiesWithHours = await this.listActivitiesForDateUseCase.execute(userId, date, categoryId);
     res.status(200).json(
-      activitiesWithHours.map(({ activity, hours }) => ({ ...activity.toJSON(), todayHours: hours })),
+      activitiesWithHours.map(({ activity, hours, times }) => ({
+        ...activity.toJSON(),
+        todayHours: hours,
+        todayTimes: times,
+      })),
     );
   };
 
@@ -52,9 +56,9 @@ export class ActivityController {
       return;
     }
 
-    const { date, hours } = req.body;
-    const saved = await this.putActivityLogUseCase.execute(userId, id, date, hours);
-    res.status(200).json({ hours: saved });
+    const { date, times } = req.body;
+    const saved = await this.putActivityLogUseCase.execute(userId, id, date, times);
+    res.status(200).json(saved);
   };
 }
 

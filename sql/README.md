@@ -38,9 +38,15 @@ for f in sql/0*.sql; do mysql -h <host> -P <port> -u <user> -p < "$f"; done
 - `activity_categories` — categorías de actividades por usuario (ej. "Estudios"), con color
 - `activities` — actividades dentro de una categoría (ej. "Lectura")
 - `activity_logs` — horas registradas por actividad y día (`UNIQUE(activity_id, log_date)`)
-- `fixed_routines` — rutinas fijas recurrentes por usuario (ej. "Trabajaste"), `type` single/range
+- `fixed_routines` — rutinas fijas recurrentes por usuario (ej. "Trabajaste"), `type` single/range,
+  `linked_activity_id` opcional (refleja los horarios de la rutina como
+  `activity_log_times` de esa actividad, ver abajo)
 - `routine_logs` / `routine_log_times` — registro de una rutina en un día
   específico y sus rangos de hora (1 rango si `single`, 1+ si `range`)
+- `activity_log_times` — rangos de hora individuales de un `activity_log`
+  (1+ por actividad+día, ej. 13:00-14:00 y 19:00-21:00); `activity_logs.hours`
+  es el total recalculado. `source` distingue entradas manuales de las
+  reflejadas por una rutina vinculada (`source_routine_id`)
 - `finance_entries` — ingresos/gastos por semana (módulo Finanzas)
 - `user_finance_settings` — deuda total y moneda por usuario (singleton)
 - `finance_debt_payments` / `finance_savings_log` — abonos y ahorro por semana (se suman, no se duplican en settings)

@@ -175,15 +175,23 @@ export function createServer(pool: Pool): Express {
     activityCategoryRepository,
     activityLogRepository,
   );
-  const createFixedRoutineUseCase = new CreateFixedRoutineUseCase(fixedRoutineRepository);
+  const createFixedRoutineUseCase = new CreateFixedRoutineUseCase(
+    fixedRoutineRepository,
+    activityRepository,
+    activityCategoryRepository,
+  );
   const listFixedRoutinesUseCase = new ListFixedRoutinesUseCase(fixedRoutineRepository);
   const listFixedRoutinesForDateUseCase = new ListFixedRoutinesForDateUseCase(
     fixedRoutineRepository,
     routineLogRepository,
   );
   const deleteFixedRoutineUseCase = new DeleteFixedRoutineUseCase(fixedRoutineRepository);
-  const putRoutineLogUseCase = new PutRoutineLogUseCase(fixedRoutineRepository, routineLogRepository);
-  const updateFixedRoutineUseCase = new UpdateFixedRoutineUseCase(fixedRoutineRepository);
+  const putRoutineLogUseCase = new PutRoutineLogUseCase(fixedRoutineRepository, routineLogRepository, activityLogRepository);
+  const updateFixedRoutineUseCase = new UpdateFixedRoutineUseCase(
+    fixedRoutineRepository,
+    activityRepository,
+    activityCategoryRepository,
+  );
 
   const listActivityLogsUseCase = new ListActivityLogsUseCase(activityLogRepository);
 

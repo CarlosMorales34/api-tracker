@@ -18,6 +18,11 @@ const CREATE_FIXED_ROUTINE_ROUTE = 'fixed-routines:create';
  *         name: { type: string }
  *         icon: { type: string }
  *         type: { type: string, enum: [single, range] }
+ *         linkedActivityId:
+ *           type: string
+ *           format: uuid
+ *           nullable: true
+ *           description: Actividad a la que se reflejan los horarios de esta rutina. Solo rutinas type=range pueden vincularse.
  *         sortOrder: { type: integer }
  *     RoutineLogTime:
  *       type: object
@@ -59,6 +64,7 @@ export function fixedRoutineRoutes(
    *               name: { type: string, maxLength: 150 }
    *               icon: { type: string, maxLength: 30 }
    *               type: { type: string, enum: [single, range] }
+   *               linkedActivityId: { type: string, format: uuid, nullable: true }
    *     responses:
    *       201:
    *         description: Rutina fija creada
@@ -205,6 +211,7 @@ export function fixedRoutineRoutes(
    *               name: { type: string, maxLength: 150 }
    *               icon: { type: string, maxLength: 30 }
    *               type: { type: string, enum: [single, range] }
+   *               linkedActivityId: { type: string, format: uuid, nullable: true }
    *     responses:
    *       200:
    *         description: Rutina actualizada

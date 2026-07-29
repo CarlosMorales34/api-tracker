@@ -8,6 +8,7 @@ interface FixedRoutineRow extends RowDataPacket {
   name: string;
   icon: string;
   type: FixedRoutineType;
+  linked_activity_id: string | null;
   sort_order: number;
   created_at: Date;
 }
@@ -21,9 +22,20 @@ export class MysqlFixedRoutineRepository implements FixedRoutineRepository {
 
   async save(routine: FixedRoutine): Promise<void> {
     await this.pool.query(
-      `INSERT INTO fixed_routines (id, user_id, name, icon, type, sort_order, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE name = VALUES(name), icon = VALUES(icon), type = VALUES(type), sort_order = VALUES(sort_order)`,
-      [routine.id, routine.userId, routine.name, routine.icon, routine.type, routine.sortOrder, routine.createdAt],
+      `INSERT INTO fixed_routines (id, user_id, name, icon, type, linked_activity_id, sort_order, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = VALUES(name), icon = VALUES(icon), type = VALUES(type),
+         linked_activity_id = VALUES(linked_activity_id), sort_order = VALUES(sort_order)`,
+      [
+        routine.id,
+        routine.userId,
+        routine.name,
+        routine.icon,
+        routine.type,
+        routine.linkedActivityId,
+        routine.sortOrder,
+        routine.createdAt,
+      ],
     );
   }
 
@@ -63,6 +75,7 @@ export class MysqlFixedRoutineRepository implements FixedRoutineRepository {
       name: row.name,
       icon: row.icon,
       type: row.type,
+      linkedActivityId: row.linked_activity_id,
       sortOrder: row.sort_order,
       createdAt: new Date(row.created_at),
     });

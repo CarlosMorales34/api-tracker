@@ -4,4 +4,5 @@ export interface CreateFixedRoutineDto {
   name: string;
   icon: string;
   type: FixedRoutineType;
+  linkedActivityId?: string | null;
 }
