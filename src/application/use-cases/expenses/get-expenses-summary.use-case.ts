@@ -39,15 +39,16 @@ export class GetExpensesSummaryUseCase {
     ]);
 
     const monthExpenseTotal = monthDailyTotal + fixedTotal;
+    const resolvedSettings = settings ?? DEFAULT_FINANCE_SETTINGS;
 
     return {
       monthIncome,
       monthDailyTotal,
       fixedTotal,
       monthExpenseTotal,
-      sobrante: monthIncome - monthExpenseTotal,
+      sobrante: resolvedSettings.walletBalance - monthExpenseTotal,
       weekTotal,
-      currency: (settings ?? DEFAULT_FINANCE_SETTINGS).currency,
+      currency: resolvedSettings.currency,
     };
   }
 }
