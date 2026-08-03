@@ -65,6 +65,13 @@ export class MysqlActivityRepository implements ActivityRepository {
     await this.pool.query('UPDATE activities SET sort_order = ? WHERE id = ?', [sortOrder, id]);
   }
 
+  async deleteById(id: string): Promise<void> {
+    // ON DELETE CASCADE en activity_logs -> activity_log_times limpia los
+    // registros de horas de esta actividad; fixed_routines.linked_activity_id
+    // se pone en NULL solo (ON DELETE SET NULL).
+    await this.pool.query('DELETE FROM activities WHERE id = ?', [id]);
+  }
+
   private toEntity(row: ActivityRow): Activity {
     return Activity.fromPersistence({
       id: row.id,

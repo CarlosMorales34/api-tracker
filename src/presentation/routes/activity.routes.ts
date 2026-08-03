@@ -3,7 +3,7 @@ import { ActivityController } from '../controllers/activity.controller';
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { idempotency } from '../middlewares/idempotency.middleware';
 import { validateBody } from '../middlewares/validate.middleware';
-import { createActivitySchema, reorderActivitiesSchema } from '../validators/activity.validators';
+import { createActivitySchema, putDailyFeedbackSchema, reorderActivitiesSchema } from '../validators/activity.validators';
 import { putActivityLogSchema } from '../validators/activity-log.validators';
 
 const CREATE_ACTIVITY_ROUTE = 'activities:create';
@@ -208,6 +208,93 @@ export function activityRoutes(
    *         description: id no existe o no pertenece al usuario autenticado
    */
   router.put('/:id/log', validateBody(putActivityLogSchema), controller.putLog);
+
+  /**
+   * @openapi
+   * /api/activities/feedback:
+   *   get:
+   *     tags: [Activities]
+   *     summary: Obtener el feedback diario (nota de texto libre) del usuario autenticado para un día
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: date
+   *         required: true
+   *         schema: { type: string, format: date }
+   *     responses:
+   *       200:
+   *         description: Nota del día (vacía si no se ha escrito nada)
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 note: { type: string }
+   *       400:
+   *         description: date faltante
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/feedback', controller.getFeedback);
+
+  /**
+   * @openapi
+   * /api/activities/feedback:
+   *   put:
+   *     tags: [Activities]
+   *     summary: Guardar (o reemplazar) el feedback diario del usuario autenticado para un día
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [date, note]
+   *             properties:
+   *               date: { type: string, format: date }
+   *               note: { type: string, maxLength: 5000 }
+   *     responses:
+   *       200:
+   *         description: Nota guardada
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 note: { type: string }
+   *       400:
+   *         description: Body inválido
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.put('/feedback', validateBody(putDailyFeedbackSchema), controller.putFeedback);
+
+  /**
+   * @openapi
+   * /api/activities/{id}:
+   *   delete:
+   *     tags: [Activities]
+   *     summary: Eliminar una actividad propia del usuario autenticado
+   *     description: Borra en cascada sus registros de horas y turnos. Las rutinas fijas vinculadas a esta actividad quedan sin vínculo.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string, format: uuid }
+   *     responses:
+   *       204:
+   *         description: Actividad eliminada
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   *       404:
+   *         description: id no existe o no pertenece al usuario autenticado
+   */
+  router.delete('/:id', controller.delete);
 
   return router;
 }

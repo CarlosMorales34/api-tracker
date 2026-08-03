@@ -55,6 +55,12 @@ export class MysqlActivityCategoryRepository implements ActivityCategoryReposito
     await this.pool.query('UPDATE activity_categories SET sort_order = ? WHERE id = ?', [sortOrder, id]);
   }
 
+  async deleteById(id: string): Promise<void> {
+    // ON DELETE CASCADE en activities -> activity_logs -> activity_log_times
+    // se encarga de limpiar todo lo que cuelga de esta categoría.
+    await this.pool.query('DELETE FROM activity_categories WHERE id = ?', [id]);
+  }
+
   private toEntity(row: ActivityCategoryRow): ActivityCategory {
     return ActivityCategory.fromPersistence({
       id: row.id,

@@ -46,6 +46,7 @@ import { MysqlWeightEntryRepository } from '../../database/mysql/repositories/my
 import { MysqlWeightSettingsRepository } from '../../database/mysql/repositories/mysql-weight-settings.repository';
 import { MysqlAnnualCounterRepository } from '../../database/mysql/repositories/mysql-annual-counter.repository';
 import { MysqlWeekNoteRepository } from '../../database/mysql/repositories/mysql-week-note.repository';
+import { MysqlDailyFeedbackRepository } from '../../database/mysql/repositories/mysql-daily-feedback.repository';
 import { MysqlProductivitySettingsRepository } from '../../database/mysql/repositories/mysql-productivity-settings.repository';
 import { MysqlWorkoutRepository } from '../../database/mysql/repositories/mysql-workout.repository';
 import { CreateMetricUseCase } from '../../../application/use-cases/metric/create-metric.use-case';
@@ -55,10 +56,14 @@ import { GetMetricHistoryUseCase } from '../../../application/use-cases/metric-e
 import { CreateActivityCategoryUseCase } from '../../../application/use-cases/activity-category/create-activity-category.use-case';
 import { ListActivityCategoriesUseCase } from '../../../application/use-cases/activity-category/list-activity-categories.use-case';
 import { ReorderActivityCategoriesUseCase } from '../../../application/use-cases/activity-category/reorder-activity-categories.use-case';
+import { DeleteActivityCategoryUseCase } from '../../../application/use-cases/activity-category/delete-activity-category.use-case';
 import { CreateActivityUseCase } from '../../../application/use-cases/activity/create-activity.use-case';
 import { ListActivitiesUseCase } from '../../../application/use-cases/activity/list-activities.use-case';
 import { ListActivitiesForDateUseCase } from '../../../application/use-cases/activity/list-activities-for-date.use-case';
 import { ReorderActivitiesUseCase } from '../../../application/use-cases/activity/reorder-activities.use-case';
+import { DeleteActivityUseCase } from '../../../application/use-cases/activity/delete-activity.use-case';
+import { GetDailyFeedbackUseCase } from '../../../application/use-cases/activity/get-daily-feedback.use-case';
+import { PutDailyFeedbackUseCase } from '../../../application/use-cases/activity/put-daily-feedback.use-case';
 import { PutActivityLogUseCase } from '../../../application/use-cases/activity-log/put-activity-log.use-case';
 import { CreateFixedRoutineUseCase } from '../../../application/use-cases/fixed-routine/create-fixed-routine.use-case';
 import { ListFixedRoutinesUseCase } from '../../../application/use-cases/fixed-routine/list-fixed-routines.use-case';
@@ -145,6 +150,7 @@ export function createServer(pool: Pool): Express {
   const weightSettingsRepository = new MysqlWeightSettingsRepository(pool);
   const annualCounterRepository = new MysqlAnnualCounterRepository(pool);
   const weekNoteRepository = new MysqlWeekNoteRepository(pool);
+  const dailyFeedbackRepository = new MysqlDailyFeedbackRepository(pool);
   const productivitySettingsRepository = new MysqlProductivitySettingsRepository(pool);
   const workoutRepository = new MysqlWorkoutRepository(pool);
 
@@ -166,10 +172,14 @@ export function createServer(pool: Pool): Express {
   const createActivityCategoryUseCase = new CreateActivityCategoryUseCase(activityCategoryRepository);
   const listActivityCategoriesUseCase = new ListActivityCategoriesUseCase(activityCategoryRepository);
   const reorderActivityCategoriesUseCase = new ReorderActivityCategoriesUseCase(activityCategoryRepository);
+  const deleteActivityCategoryUseCase = new DeleteActivityCategoryUseCase(activityCategoryRepository);
   const createActivityUseCase = new CreateActivityUseCase(activityCategoryRepository, activityRepository);
   const listActivitiesUseCase = new ListActivitiesUseCase(activityCategoryRepository, activityRepository);
   const listActivitiesForDateUseCase = new ListActivitiesForDateUseCase(listActivitiesUseCase, activityLogRepository);
   const reorderActivitiesUseCase = new ReorderActivitiesUseCase(activityCategoryRepository, activityRepository);
+  const deleteActivityUseCase = new DeleteActivityUseCase(activityCategoryRepository, activityRepository);
+  const getDailyFeedbackUseCase = new GetDailyFeedbackUseCase(dailyFeedbackRepository);
+  const putDailyFeedbackUseCase = new PutDailyFeedbackUseCase(dailyFeedbackRepository);
   const putActivityLogUseCase = new PutActivityLogUseCase(
     activityRepository,
     activityCategoryRepository,
@@ -283,13 +293,17 @@ export function createServer(pool: Pool): Express {
     createActivityCategoryUseCase,
     listActivityCategoriesUseCase,
     reorderActivityCategoriesUseCase,
+    deleteActivityCategoryUseCase,
   );
   const activityController = new ActivityController(
     createActivityUseCase,
     listActivitiesUseCase,
     listActivitiesForDateUseCase,
     reorderActivitiesUseCase,
+    deleteActivityUseCase,
     putActivityLogUseCase,
+    getDailyFeedbackUseCase,
+    putDailyFeedbackUseCase,
   );
   const fixedRoutineController = new FixedRoutineController(
     createFixedRoutineUseCase,

@@ -62,6 +62,8 @@ for f in sql/0*.sql; do mysql -h <host> -P <port> -u <user> -p < "$f"; done
 - `workouts` — sesión de entrenamiento por día (`workout_date`, duración total en segundos, comentarios opcionales)
 - `workout_exercises` — ejercicios de una sesión (`workout_id` FK), `weight`
   nullable (peso corporal / sin dato), `reps` es JSON (un valor por serie)
+- `daily_feedback` — reflexión de texto libre por día, en Actividades
+  (`UNIQUE(user_id, log_date)`)
 
 Este es el schema canónico. La migración que corre `docker-compose up` (para
 desarrollo aislado en contenedor) vive en

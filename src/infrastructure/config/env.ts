@@ -28,7 +28,7 @@ export const env = {
   },
   jwt: {
     secret: required('JWT_SECRET'),
-    expiresIn: required('JWT_EXPIRES_IN', '15m'),
+    expiresIn: required('JWT_EXPIRES_IN', '1d'),
     refreshExpiresIn: required('JWT_REFRESH_EXPIRES_IN', '7d'),
   },
   corsOrigin: required('CORS_ORIGIN', 'http://localhost:3000'),

@@ -57,15 +57,22 @@ export function formatRangeLabel(start: Date, end: Date): string {
   return `${start.getUTCDate()} – ${end.getUTCDate()} ${MONTH_ABBR_ES[end.getUTCMonth()]}`;
 }
 
-// "Hoy" tal como lo vive el usuario (timezone local del proceso), no el día
-// UTC — `new Date()` es un instante, no una fecha de calendario, así que
-// formatDateOnly(new Date()) puede desfasarse un día según el TZ del server.
+// "Hoy" tal como lo vive el usuario en México (America/Mexico_City), no el
+// día del timezone del proceso Node -- si el server corre en UTC (común en
+// hosting), `new Date()` ya cruza medianoche 6h antes que en México, lo que
+// reiniciaba rachas/contadores antes de que el día terminara localmente.
+const APP_TIMEZONE = 'America/Mexico_City';
+
+const todayFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIMEZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
 export function todayDateOnly(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  // en-CA formatea como YYYY-MM-DD.
+  return todayFormatter.format(new Date());
 }
 
 export function isValidDateOnly(value: string): boolean {

@@ -120,5 +120,29 @@ export function activityCategoryRoutes(
    */
   router.patch('/reorder', validateBody(reorderActivityCategoriesSchema), controller.reorder);
 
+  /**
+   * @openapi
+   * /api/activity-categories/{id}:
+   *   delete:
+   *     tags: [Activity Categories]
+   *     summary: Eliminar una categoría propia del usuario autenticado
+   *     description: Borra en cascada sus actividades, los registros de horas y los turnos asociados. Las rutinas fijas vinculadas a alguna de esas actividades quedan sin vínculo.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string, format: uuid }
+   *     responses:
+   *       204:
+   *         description: Categoría eliminada
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   *       404:
+   *         description: id no existe o no pertenece al usuario autenticado
+   */
+  router.delete('/:id', controller.delete);
+
   return router;
 }
