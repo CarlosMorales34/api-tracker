@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Pool, RowDataPacket } from 'mysql2/promise';
+import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { Workout, WorkoutExercise } from '../../../../domain/entities/workout.entity';
 import {
   CreateWorkoutInput,
@@ -65,6 +65,38 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     const created = await this.findById(userId, workoutId);
     if (!created) throw new Error('Workout was created but could not be re-read');
     return created;
+  }
+
+  async update(userId: string, workoutId: string, input: CreateWorkoutInput): Promise<Workout | null> {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [result] = await connection.query<ResultSetHeader>(
+        `UPDATE workouts SET workout_date = ?, duration_seconds = ?, comments = ? WHERE id = ? AND user_id = ?`,
+        [input.workoutDate, input.durationSeconds, input.comments, workoutId, userId],
+      );
+      if (result.affectedRows === 0) {
+        await connection.rollback();
+        return null;
+      }
+
+      await connection.query('DELETE FROM workout_exercises WHERE workout_id = ?', [workoutId]);
+      for (const [index, exercise] of input.exercises.entries()) {
+        await connection.query(
+          `INSERT INTO workout_exercises (id, workout_id, name, weight, sets, reps, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [randomUUID(), workoutId, exercise.name, exercise.weight, exercise.sets, JSON.stringify(exercise.reps), index],
+        );
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    return this.findById(userId, workoutId);
   }
 
   async findByUserAndDateRange(userId: string, from: string, to: string): Promise<Workout[]> {

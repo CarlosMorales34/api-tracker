@@ -64,6 +64,12 @@ for f in sql/0*.sql; do mysql -h <host> -P <port> -u <user> -p < "$f"; done
   nullable (peso corporal / sin dato), `reps` es JSON (un valor por serie)
 - `daily_feedback` — reflexión de texto libre por día, en Actividades
   (`UNIQUE(user_id, log_date)`)
+- `workout_routines` — plantillas fijas de entrenamiento por usuario (ej.
+  "Día de pierna"), `weekday` opcional (0=domingo..6=sábado, igual que
+  `Date#getDay()`) -- si está seteado, el front la recomienda al crear un
+  entrenamiento ese día de la semana
+- `workout_routine_exercises` — ejercicios objetivo de una rutina
+  (`target_sets`, `target_reps`, `suggested_weight` opcional)
 
 Este es el schema canónico. La migración que corre `docker-compose up` (para
 desarrollo aislado en contenedor) vive en

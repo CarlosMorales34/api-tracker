@@ -16,3 +16,10 @@ export const createWorkoutSchema = z.object({
   comments: z.string().max(2000).nullable(),
   exercises: z.array(workoutExerciseSchema).min(1).max(30),
 });
+
+export const updateWorkoutSchema = z.object({
+  workoutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  durationSeconds: z.number().int().nonnegative(),
+  comments: z.string().max(2000).nullable(),
+  exercises: z.array(workoutExerciseSchema).min(1).max(30),
+});

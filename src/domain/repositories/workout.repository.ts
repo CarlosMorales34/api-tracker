@@ -24,6 +24,9 @@ export interface ExercisePerformancePoint {
 
 export interface WorkoutRepository {
   create(userId: string, input: CreateWorkoutInput): Promise<Workout>;
+  // null = el workout no existe o no pertenece a userId (ownership check
+  // vive en la query misma, WHERE id = ? AND user_id = ?).
+  update(userId: string, workoutId: string, input: CreateWorkoutInput): Promise<Workout | null>;
   findByUserAndDateRange(userId: string, from: string, to: string): Promise<Workout[]>;
   findRecentByUser(userId: string, limit: number): Promise<Workout[]>;
   delete(userId: string, workoutId: string): Promise<void>;

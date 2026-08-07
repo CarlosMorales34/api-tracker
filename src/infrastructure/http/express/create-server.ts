@@ -19,6 +19,7 @@ import { ExpensesController } from '../../../presentation/controllers/expenses.c
 import { CreditCardController } from '../../../presentation/controllers/credit-card.controller';
 import { WeightController } from '../../../presentation/controllers/weight.controller';
 import { WorkoutController } from '../../../presentation/controllers/workout.controller';
+import { WorkoutRoutineController } from '../../../presentation/controllers/workout-routine.controller';
 import { WeeklyLogController } from '../../../presentation/controllers/weekly-log.controller';
 import { HomeController } from '../../../presentation/controllers/home.controller';
 import { errorHandler } from '../../../presentation/middlewares/error-handler.middleware';
@@ -49,6 +50,7 @@ import { MysqlWeekNoteRepository } from '../../database/mysql/repositories/mysql
 import { MysqlDailyFeedbackRepository } from '../../database/mysql/repositories/mysql-daily-feedback.repository';
 import { MysqlProductivitySettingsRepository } from '../../database/mysql/repositories/mysql-productivity-settings.repository';
 import { MysqlWorkoutRepository } from '../../database/mysql/repositories/mysql-workout.repository';
+import { MysqlWorkoutRoutineRepository } from '../../database/mysql/repositories/mysql-workout-routine.repository';
 import { CreateMetricUseCase } from '../../../application/use-cases/metric/create-metric.use-case';
 import { ListMetricsUseCase } from '../../../application/use-cases/metric/list-metrics.use-case';
 import { LogMetricEntryUseCase } from '../../../application/use-cases/metric-entry/log-metric-entry.use-case';
@@ -107,6 +109,11 @@ import { GetWeeklyLogYearUseCase } from '../../../application/use-cases/weekly-l
 import { GetWeeklyLogWeekUseCase } from '../../../application/use-cases/weekly-log/get-weekly-log-week.use-case';
 import { GetHomeSummaryUseCase } from '../../../application/use-cases/home/get-home-summary.use-case';
 import { CreateWorkoutUseCase } from '../../../application/use-cases/workout/create-workout.use-case';
+import { UpdateWorkoutUseCase } from '../../../application/use-cases/workout/update-workout.use-case';
+import { CreateWorkoutRoutineUseCase } from '../../../application/use-cases/workout-routine/create-workout-routine.use-case';
+import { UpdateWorkoutRoutineUseCase } from '../../../application/use-cases/workout-routine/update-workout-routine.use-case';
+import { ListWorkoutRoutinesUseCase } from '../../../application/use-cases/workout-routine/list-workout-routines.use-case';
+import { DeleteWorkoutRoutineUseCase } from '../../../application/use-cases/workout-routine/delete-workout-routine.use-case';
 import { ListWorkoutsForWeekUseCase } from '../../../application/use-cases/workout/list-workouts-for-week.use-case';
 import { DeleteWorkoutUseCase } from '../../../application/use-cases/workout/delete-workout.use-case';
 import { GetWorkoutPerformanceUseCase } from '../../../application/use-cases/workout/get-workout-performance.use-case';
@@ -153,6 +160,7 @@ export function createServer(pool: Pool): Express {
   const dailyFeedbackRepository = new MysqlDailyFeedbackRepository(pool);
   const productivitySettingsRepository = new MysqlProductivitySettingsRepository(pool);
   const workoutRepository = new MysqlWorkoutRepository(pool);
+  const workoutRoutineRepository = new MysqlWorkoutRoutineRepository(pool);
 
   // --- Security services ---
   const passwordHasher = new BcryptPasswordHasher();
@@ -276,6 +284,11 @@ export function createServer(pool: Pool): Express {
   );
 
   const createWorkoutUseCase = new CreateWorkoutUseCase(workoutRepository);
+  const updateWorkoutUseCase = new UpdateWorkoutUseCase(workoutRepository);
+  const createWorkoutRoutineUseCase = new CreateWorkoutRoutineUseCase(workoutRoutineRepository);
+  const updateWorkoutRoutineUseCase = new UpdateWorkoutRoutineUseCase(workoutRoutineRepository);
+  const listWorkoutRoutinesUseCase = new ListWorkoutRoutinesUseCase(workoutRoutineRepository);
+  const deleteWorkoutRoutineUseCase = new DeleteWorkoutRoutineUseCase(workoutRoutineRepository);
   const listWorkoutsForWeekUseCase = new ListWorkoutsForWeekUseCase(workoutRepository);
   const deleteWorkoutUseCase = new DeleteWorkoutUseCase(workoutRepository);
   const getWorkoutPerformanceUseCase = new GetWorkoutPerformanceUseCase(workoutRepository);
@@ -364,9 +377,16 @@ export function createServer(pool: Pool): Express {
   const homeController = new HomeController(getHomeSummaryUseCase);
   const workoutController = new WorkoutController(
     createWorkoutUseCase,
+    updateWorkoutUseCase,
     listWorkoutsForWeekUseCase,
     deleteWorkoutUseCase,
     getWorkoutPerformanceUseCase,
+  );
+  const workoutRoutineController = new WorkoutRoutineController(
+    createWorkoutRoutineUseCase,
+    updateWorkoutRoutineUseCase,
+    listWorkoutRoutinesUseCase,
+    deleteWorkoutRoutineUseCase,
   );
 
   // --- Cross-cutting middlewares ---
@@ -412,6 +432,7 @@ export function createServer(pool: Pool): Express {
       homeController,
       creditCardController,
       workoutController,
+      workoutRoutineController,
       authenticateMiddleware,
       idempotencyRepository,
     }),
