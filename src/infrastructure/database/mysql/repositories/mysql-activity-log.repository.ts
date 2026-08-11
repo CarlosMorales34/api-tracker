@@ -137,6 +137,30 @@ export class MysqlActivityLogRepository implements ActivityLogRepository {
     return byActivity;
   }
 
+  async sumHoursExcludingRoutines(userId: string, logDate: string, excludeRoutineIds: string[]): Promise<number> {
+    interface TimeRow extends RowDataPacket {
+      start_time: string;
+      end_time: string;
+      source_routine_id: string | null;
+    }
+    const [rows] = await this.pool.query<TimeRow[]>(
+      `SELECT alt.start_time AS start_time, alt.end_time AS end_time, alt.source_routine_id AS source_routine_id
+       FROM activity_logs al
+       INNER JOIN activities a ON a.id = al.activity_id
+       INNER JOIN activity_categories ac ON ac.id = a.category_id
+       INNER JOIN activity_log_times alt ON alt.activity_log_id = al.id
+       WHERE ac.user_id = ? AND al.log_date = ?`,
+      [userId, logDate],
+    );
+
+    const excludeSet = new Set(excludeRoutineIds);
+    const total = rows.reduce((sum, row) => {
+      if (row.source_routine_id && excludeSet.has(row.source_routine_id)) return sum;
+      return sum + durationHours(String(row.start_time), String(row.end_time));
+    }, 0);
+    return Math.round(total * 100) / 100;
+  }
+
   async upsertManualTimes(activityId: string, logDate: string, times: { start: string; end: string }[]): Promise<void> {
     await this.replaceTimes(activityId, logDate, times, { source: 'manual' });
   }

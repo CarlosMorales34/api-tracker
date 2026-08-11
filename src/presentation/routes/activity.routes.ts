@@ -240,6 +240,44 @@ export function activityRoutes(
 
   /**
    * @openapi
+   * /api/activities/daily-productivity:
+   *   get:
+   *     tags: [Activities]
+   *     summary: Indicador de productividad diaria del usuario autenticado
+   *     description: >
+   *       percent = min(100, activityHours / (24 - sleepHours) * 100).
+   *       sleepHours viene de la(s) rutina(s) fija(s) marcadas is_sleep=true ese día
+   *       (cruce de medianoche incluido). activityHours excluye el reflejo de esa(s)
+   *       misma(s) rutina(s) en una actividad vinculada, para no restarlo dos veces.
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: date
+   *         required: true
+   *         schema: { type: string, format: date }
+   *     responses:
+   *       200:
+   *         description: Productividad del día
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 logDate: { type: string }
+   *                 sleepHours: { type: number }
+   *                 activityHours: { type: number }
+   *                 targetHours: { type: number }
+   *                 percent: { type: integer, nullable: true }
+   *       400:
+   *         description: date faltante
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/daily-productivity', controller.getProductivity);
+
+  /**
+   * @openapi
    * /api/activities/feedback:
    *   put:
    *     tags: [Activities]

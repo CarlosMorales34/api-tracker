@@ -9,6 +9,7 @@ export interface UpdateFixedRoutineDto {
   icon?: string;
   type?: FixedRoutineType;
   linkedActivityId?: string | null;
+  isSleep?: boolean;
 }
 
 export class UpdateFixedRoutineUseCase {

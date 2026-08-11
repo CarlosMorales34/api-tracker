@@ -7,6 +7,7 @@ import { DeleteActivityUseCase } from '../../application/use-cases/activity/dele
 import { GetDailyFeedbackUseCase } from '../../application/use-cases/activity/get-daily-feedback.use-case';
 import { PutDailyFeedbackUseCase } from '../../application/use-cases/activity/put-daily-feedback.use-case';
 import { PutActivityLogUseCase } from '../../application/use-cases/activity-log/put-activity-log.use-case';
+import { GetDailyProductivityUseCase } from '../../application/use-cases/activity-log/get-daily-productivity.use-case';
 
 export class ActivityController {
   constructor(
@@ -18,6 +19,7 @@ export class ActivityController {
     private readonly putActivityLogUseCase: PutActivityLogUseCase,
     private readonly getDailyFeedbackUseCase: GetDailyFeedbackUseCase,
     private readonly putDailyFeedbackUseCase: PutDailyFeedbackUseCase,
+    private readonly getDailyProductivityUseCase: GetDailyProductivityUseCase,
   ) {}
 
   create = async (req: Request, res: Response): Promise<void> => {
@@ -79,6 +81,17 @@ export class ActivityController {
   putFeedback = async (req: Request, res: Response): Promise<void> => {
     const userId = req.user!.id;
     const result = await this.putDailyFeedbackUseCase.execute(userId, req.body);
+    res.status(200).json(result);
+  };
+
+  getProductivity = async (req: Request, res: Response): Promise<void> => {
+    const userId = req.user!.id;
+    const date = parseQueryString(req.query.date);
+    if (!date) {
+      res.status(400).json({ message: 'date query param is required' });
+      return;
+    }
+    const result = await this.getDailyProductivityUseCase.execute(userId, date);
     res.status(200).json(result);
   };
 

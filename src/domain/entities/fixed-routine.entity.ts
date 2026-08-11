@@ -7,6 +7,10 @@ export interface FixedRoutineProps {
   icon: string;
   type: FixedRoutineType;
   linkedActivityId: string | null;
+  // Marca esta rutina como "sueño" para el indicador de productividad
+  // diaria (ver get-daily-productivity.use-case.ts) -- puede haber más de
+  // una si el usuario quiere separar ej. siesta + sueño nocturno.
+  isSleep: boolean;
   sortOrder: number;
   createdAt: Date;
 }
@@ -21,6 +25,7 @@ export class FixedRoutine {
     icon: string;
     type: FixedRoutineType;
     linkedActivityId?: string | null;
+    isSleep?: boolean;
     sortOrder: number;
   }): FixedRoutine {
     if (!props.name.trim()) {
@@ -33,7 +38,12 @@ export class FixedRoutine {
       throw new Error('FixedRoutine icon cannot be empty');
     }
 
-    return new FixedRoutine({ ...props, linkedActivityId: props.linkedActivityId ?? null, createdAt: new Date() });
+    return new FixedRoutine({
+      ...props,
+      linkedActivityId: props.linkedActivityId ?? null,
+      isSleep: props.isSleep ?? false,
+      createdAt: new Date(),
+    });
   }
 
   static fromPersistence(props: FixedRoutineProps): FixedRoutine {
@@ -64,6 +74,10 @@ export class FixedRoutine {
     return this.props.linkedActivityId;
   }
 
+  get isSleep(): boolean {
+    return this.props.isSleep;
+  }
+
   get sortOrder(): number {
     return this.props.sortOrder;
   }
@@ -77,6 +91,7 @@ export class FixedRoutine {
     icon?: string;
     type?: FixedRoutineType;
     linkedActivityId?: string | null;
+    isSleep?: boolean;
   }): void {
     if (changes.name !== undefined) {
       if (!changes.name.trim()) {
@@ -96,6 +111,9 @@ export class FixedRoutine {
     if (changes.linkedActivityId !== undefined) {
       this.props.linkedActivityId = changes.linkedActivityId;
     }
+    if (changes.isSleep !== undefined) {
+      this.props.isSleep = changes.isSleep;
+    }
   }
 
   toJSON(): {
@@ -104,6 +122,7 @@ export class FixedRoutine {
     icon: string;
     type: FixedRoutineType;
     linkedActivityId: string | null;
+    isSleep: boolean;
     sortOrder: number;
   } {
     return {
@@ -112,6 +131,7 @@ export class FixedRoutine {
       icon: this.props.icon,
       type: this.props.type,
       linkedActivityId: this.props.linkedActivityId,
+      isSleep: this.props.isSleep,
       sortOrder: this.props.sortOrder,
     };
   }

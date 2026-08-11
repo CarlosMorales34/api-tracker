@@ -41,4 +41,10 @@ export interface ActivityLogRepository {
     routineId: string,
     times: { start: string; end: string }[],
   ): Promise<void>;
+  // Suma la duración de todos los bloques de actividad de ese día, salvo los
+  // reflejados (source='routine') de una rutina en `excludeRoutineIds` -- usa
+  // esto el indicador de productividad diaria para no contar como "actividad
+  // realizada" el bloque que ya se restó aparte como horas de sueño (ver
+  // get-daily-productivity.use-case.ts).
+  sumHoursExcludingRoutines(userId: string, logDate: string, excludeRoutineIds: string[]): Promise<number>;
 }

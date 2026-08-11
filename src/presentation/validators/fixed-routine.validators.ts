@@ -5,6 +5,7 @@ export const createFixedRoutineSchema = z.object({
   icon: z.string().trim().min(1).max(30),
   type: z.enum(['single', 'range']),
   linkedActivityId: z.string().uuid().nullable().optional(),
+  isSleep: z.boolean().optional(),
 });
 
 export const updateFixedRoutineSchema = z.object({
@@ -12,6 +13,7 @@ export const updateFixedRoutineSchema = z.object({
   icon: z.string().trim().min(1).max(30).optional(),
   type: z.enum(['single', 'range']).optional(),
   linkedActivityId: z.string().uuid().nullable().optional(),
+  isSleep: z.boolean().optional(),
 });
 
 const timeOfDaySchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM');

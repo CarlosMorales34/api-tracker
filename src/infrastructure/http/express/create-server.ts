@@ -65,6 +65,7 @@ import { ListActivitiesForDateUseCase } from '../../../application/use-cases/act
 import { ReorderActivitiesUseCase } from '../../../application/use-cases/activity/reorder-activities.use-case';
 import { DeleteActivityUseCase } from '../../../application/use-cases/activity/delete-activity.use-case';
 import { GetDailyFeedbackUseCase } from '../../../application/use-cases/activity/get-daily-feedback.use-case';
+import { GetDailyProductivityUseCase } from '../../../application/use-cases/activity-log/get-daily-productivity.use-case';
 import { PutDailyFeedbackUseCase } from '../../../application/use-cases/activity/put-daily-feedback.use-case';
 import { PutActivityLogUseCase } from '../../../application/use-cases/activity-log/put-activity-log.use-case';
 import { CreateFixedRoutineUseCase } from '../../../application/use-cases/fixed-routine/create-fixed-routine.use-case';
@@ -211,6 +212,11 @@ export function createServer(pool: Pool): Express {
     activityRepository,
     activityCategoryRepository,
   );
+  const getDailyProductivityUseCase = new GetDailyProductivityUseCase(
+    fixedRoutineRepository,
+    routineLogRepository,
+    activityLogRepository,
+  );
 
   const listActivityLogsUseCase = new ListActivityLogsUseCase(activityLogRepository);
 
@@ -319,6 +325,7 @@ export function createServer(pool: Pool): Express {
     putActivityLogUseCase,
     getDailyFeedbackUseCase,
     putDailyFeedbackUseCase,
+    getDailyProductivityUseCase,
   );
   const fixedRoutineController = new FixedRoutineController(
     createFixedRoutineUseCase,

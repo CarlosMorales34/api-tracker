@@ -32,6 +32,7 @@ export class CreateFixedRoutineUseCase {
       icon: dto.icon,
       type: dto.type,
       linkedActivityId: dto.linkedActivityId ?? null,
+      isSleep: dto.isSleep ?? false,
       sortOrder,
     });
 
