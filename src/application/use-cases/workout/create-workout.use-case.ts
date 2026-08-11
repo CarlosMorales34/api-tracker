@@ -15,6 +15,7 @@ export class CreateWorkoutUseCase {
 
     return this.workoutRepository.create(userId, {
       workoutDate: dto.workoutDate ?? todayDateOnly(),
+      sourceRoutineId: dto.sourceRoutineId ?? null,
       durationSeconds: dto.durationSeconds,
       comments: dto.comments && dto.comments.trim().length > 0 ? dto.comments.trim() : null,
       exercises: validExercises.map((ex) => ({

@@ -9,15 +9,21 @@ export interface CreateWorkoutExerciseInput {
 
 export interface CreateWorkoutInput {
   workoutDate: string;
+  sourceRoutineId: string | null;
   durationSeconds: number;
   comments: string | null;
   exercises: CreateWorkoutExerciseInput[];
 }
 
+// sourceRoutineId se fija solo al crear (de qué rutina se originó, si
+// aplica) -- editar un entrenamiento nunca cambia ese origen.
+export type UpdateWorkoutInput = Omit<CreateWorkoutInput, 'sourceRoutineId'>;
+
 // Punto de una serie temporal por ejercicio, para la gráfica de rendimiento
 // entre sesiones (ver get-workout-performance.use-case.ts).
 export interface ExercisePerformancePoint {
   workoutDate: string;
+  sourceRoutineId: string | null;
   weight: number | null;
   totalReps: number;
 }
@@ -26,7 +32,7 @@ export interface WorkoutRepository {
   create(userId: string, input: CreateWorkoutInput): Promise<Workout>;
   // null = el workout no existe o no pertenece a userId (ownership check
   // vive en la query misma, WHERE id = ? AND user_id = ?).
-  update(userId: string, workoutId: string, input: CreateWorkoutInput): Promise<Workout | null>;
+  update(userId: string, workoutId: string, input: UpdateWorkoutInput): Promise<Workout | null>;
   findByUserAndDateRange(userId: string, from: string, to: string): Promise<Workout[]>;
   findRecentByUser(userId: string, limit: number): Promise<Workout[]>;
   delete(userId: string, workoutId: string): Promise<void>;

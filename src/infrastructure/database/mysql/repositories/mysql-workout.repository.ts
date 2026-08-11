@@ -4,6 +4,7 @@ import { Workout, WorkoutExercise } from '../../../../domain/entities/workout.en
 import {
   CreateWorkoutInput,
   ExercisePerformancePoint,
+  UpdateWorkoutInput,
   WorkoutRepository,
 } from '../../../../domain/repositories/workout.repository';
 
@@ -11,6 +12,7 @@ interface WorkoutRow extends RowDataPacket {
   id: string;
   user_id: string;
   workout_date: string;
+  source_routine_id: string | null;
   duration_seconds: number;
   comments: string | null;
 }
@@ -43,9 +45,9 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     try {
       await connection.beginTransaction();
       await connection.query(
-        `INSERT INTO workouts (id, user_id, workout_date, duration_seconds, comments)
-         VALUES (?, ?, ?, ?, ?)`,
-        [workoutId, userId, input.workoutDate, input.durationSeconds, input.comments],
+        `INSERT INTO workouts (id, user_id, workout_date, source_routine_id, duration_seconds, comments)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [workoutId, userId, input.workoutDate, input.sourceRoutineId, input.durationSeconds, input.comments],
       );
       for (const [index, exercise] of input.exercises.entries()) {
         await connection.query(
@@ -67,7 +69,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     return created;
   }
 
-  async update(userId: string, workoutId: string, input: CreateWorkoutInput): Promise<Workout | null> {
+  async update(userId: string, workoutId: string, input: UpdateWorkoutInput): Promise<Workout | null> {
     const connection = await this.pool.getConnection();
     try {
       await connection.beginTransaction();
@@ -101,7 +103,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
   async findByUserAndDateRange(userId: string, from: string, to: string): Promise<Workout[]> {
     const [rows] = await this.pool.query<WorkoutRow[]>(
-      `SELECT id, user_id, workout_date, duration_seconds, comments FROM workouts
+      `SELECT id, user_id, workout_date, source_routine_id, duration_seconds, comments FROM workouts
        WHERE user_id = ? AND workout_date BETWEEN ? AND ?
        ORDER BY workout_date DESC, created_at DESC`,
       [userId, from, to],
@@ -111,7 +113,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
   async findRecentByUser(userId: string, limit: number): Promise<Workout[]> {
     const [rows] = await this.pool.query<WorkoutRow[]>(
-      `SELECT id, user_id, workout_date, duration_seconds, comments FROM workouts
+      `SELECT id, user_id, workout_date, source_routine_id, duration_seconds, comments FROM workouts
        WHERE user_id = ?
        ORDER BY workout_date DESC, created_at DESC
        LIMIT ?`,
@@ -140,7 +142,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
   async findExerciseHistory(userId: string, exerciseName: string, limit: number): Promise<ExercisePerformancePoint[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT w.workout_date AS workout_date, we.weight AS weight, we.reps AS reps
+      `SELECT w.workout_date AS workout_date, w.source_routine_id AS source_routine_id, we.weight AS weight, we.reps AS reps
        FROM workout_exercises we
        JOIN workouts w ON w.id = we.workout_id
        WHERE w.user_id = ? AND we.name = ?
@@ -150,6 +152,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     );
     return rows.map((row) => ({
       workoutDate: row.workout_date as string,
+      sourceRoutineId: row.source_routine_id as string | null,
       weight: row.weight === null ? null : Number(row.weight),
       totalReps: parseReps(row.reps as string | number[]).reduce((sum, r) => sum + r, 0),
     }));
@@ -157,7 +160,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
   private async findById(userId: string, workoutId: string): Promise<Workout | null> {
     const [rows] = await this.pool.query<WorkoutRow[]>(
-      'SELECT id, user_id, workout_date, duration_seconds, comments FROM workouts WHERE id = ? AND user_id = ? LIMIT 1',
+      'SELECT id, user_id, workout_date, source_routine_id, duration_seconds, comments FROM workouts WHERE id = ? AND user_id = ? LIMIT 1',
       [workoutId, userId],
     );
     const [row] = rows;
@@ -197,6 +200,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
         id: row.id,
         userId: row.user_id,
         workoutDate: row.workout_date,
+        sourceRoutineId: row.source_routine_id,
         durationSeconds: row.duration_seconds,
         comments: row.comments,
         exercises: exercisesByWorkout.get(row.id) ?? [],

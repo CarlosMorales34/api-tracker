@@ -12,6 +12,7 @@ export const createWorkoutSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  sourceRoutineId: z.string().uuid().nullable().optional(),
   durationSeconds: z.number().int().nonnegative(),
   comments: z.string().max(2000).nullable(),
   exercises: z.array(workoutExerciseSchema).min(1).max(30),

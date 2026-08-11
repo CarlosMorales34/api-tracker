@@ -107,6 +107,7 @@ import { PutWeightSettingsUseCase } from '../../../application/use-cases/weight/
 import { GetWeightYearlyExtremesUseCase } from '../../../application/use-cases/weight/get-weight-yearly-extremes.use-case';
 import { GetWeeklyLogYearUseCase } from '../../../application/use-cases/weekly-log/get-weekly-log-year.use-case';
 import { GetWeeklyLogWeekUseCase } from '../../../application/use-cases/weekly-log/get-weekly-log-week.use-case';
+import { GetWeeklyTrendUseCase } from '../../../application/use-cases/weekly-log/get-weekly-trend.use-case';
 import { GetHomeSummaryUseCase } from '../../../application/use-cases/home/get-home-summary.use-case';
 import { CreateWorkoutUseCase } from '../../../application/use-cases/workout/create-workout.use-case';
 import { UpdateWorkoutUseCase } from '../../../application/use-cases/workout/update-workout.use-case';
@@ -270,6 +271,7 @@ export function createServer(pool: Pool): Express {
     productivitySettingsRepository,
     weekNoteRepository,
   );
+  const getWeeklyTrendUseCase = new GetWeeklyTrendUseCase(activityLogRepository, productivitySettingsRepository);
   const putWeekNotesUseCase = new PutWeekNotesUseCase(weekNoteRepository);
   const listAnnualCountersUseCase = new ListAnnualCountersUseCase(annualCounterRepository);
   const createAnnualCounterUseCase = new CreateAnnualCounterUseCase(annualCounterRepository);
@@ -369,6 +371,7 @@ export function createServer(pool: Pool): Express {
   const weeklyLogController = new WeeklyLogController(
     getWeeklyLogYearUseCase,
     getWeeklyLogWeekUseCase,
+    getWeeklyTrendUseCase,
     putWeekNotesUseCase,
     listAnnualCountersUseCase,
     createAnnualCounterUseCase,

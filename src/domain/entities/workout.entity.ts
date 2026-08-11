@@ -60,6 +60,10 @@ export interface WorkoutProps {
   id: string;
   userId: string;
   workoutDate: string;
+  // Rutina de la que se originó este entrenamiento (si el usuario usó "Usar
+  // rutina" al registrarlo), null si fue libre. Se fija solo al crear, no
+  // se toca en update.
+  sourceRoutineId: string | null;
   durationSeconds: number;
   comments: string | null;
   exercises: WorkoutExercise[];
@@ -84,6 +88,10 @@ export class Workout {
     return this.props.workoutDate;
   }
 
+  get sourceRoutineId(): string | null {
+    return this.props.sourceRoutineId;
+  }
+
   get durationSeconds(): number {
     return this.props.durationSeconds;
   }
@@ -104,6 +112,7 @@ export class Workout {
     return {
       id: this.props.id,
       workoutDate: this.props.workoutDate,
+      sourceRoutineId: this.props.sourceRoutineId,
       durationSeconds: this.props.durationSeconds,
       comments: this.props.comments,
       exercises: this.props.exercises.map((ex) => ex.toJSON()),

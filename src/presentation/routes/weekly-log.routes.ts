@@ -106,6 +106,23 @@ export function weeklyLogRoutes(
 
   /**
    * @openapi
+   * /api/weekly-log/trend:
+   *   get:
+   *     tags: [Weekly Log]
+   *     summary: Tendencia mensual (últimas 4 semanas vs las 4 anteriores) del usuario autenticado
+   *     description: Semanas calculadas por fecha real (no año/número de semana), para no romperse en el límite de año calendario.
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Tendencia mensual
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/trend', controller.getTrend);
+
+  /**
+   * @openapi
    * /api/weekly-log/weeks/{year}/{weekNumber}:
    *   get:
    *     tags: [Weekly Log]

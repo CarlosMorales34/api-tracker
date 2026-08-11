@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { GetWeeklyLogYearUseCase } from '../../application/use-cases/weekly-log/get-weekly-log-year.use-case';
 import { GetWeeklyLogWeekUseCase } from '../../application/use-cases/weekly-log/get-weekly-log-week.use-case';
+import { GetWeeklyTrendUseCase } from '../../application/use-cases/weekly-log/get-weekly-trend.use-case';
 import { PutWeekNotesUseCase } from '../../application/use-cases/weekly-log/put-week-notes.use-case';
 import { ListAnnualCountersUseCase } from '../../application/use-cases/weekly-log/list-annual-counters.use-case';
 import { CreateAnnualCounterUseCase } from '../../application/use-cases/weekly-log/create-annual-counter.use-case';
@@ -10,6 +11,7 @@ export class WeeklyLogController {
   constructor(
     private readonly getWeeklyLogYearUseCase: GetWeeklyLogYearUseCase,
     private readonly getWeeklyLogWeekUseCase: GetWeeklyLogWeekUseCase,
+    private readonly getWeeklyTrendUseCase: GetWeeklyTrendUseCase,
     private readonly putWeekNotesUseCase: PutWeekNotesUseCase,
     private readonly listAnnualCountersUseCase: ListAnnualCountersUseCase,
     private readonly createAnnualCounterUseCase: CreateAnnualCounterUseCase,
@@ -25,6 +27,11 @@ export class WeeklyLogController {
 
     const summary = await this.getWeeklyLogYearUseCase.execute(req.user!.id, year);
     res.status(200).json(summary);
+  };
+
+  getTrend = async (req: Request, res: Response): Promise<void> => {
+    const trend = await this.getWeeklyTrendUseCase.execute(req.user!.id);
+    res.status(200).json(trend);
   };
 
   getWeek = async (req: Request, res: Response): Promise<void> => {

@@ -7,6 +7,7 @@ export interface CreateWorkoutExerciseDto {
 
 export interface CreateWorkoutDto {
   workoutDate?: string;
+  sourceRoutineId?: string | null;
   durationSeconds: number;
   comments: string | null;
   exercises: CreateWorkoutExerciseDto[];

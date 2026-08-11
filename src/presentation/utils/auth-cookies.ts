@@ -10,8 +10,15 @@ const REFRESH_COOKIE_PATH = '/api/auth';
 function baseCookieOptions() {
   return {
     httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: env.nodeEnv === 'production',
+    // 'lax' cookies aren't sent on cross-origin fetch/XHR (only top-level
+    // navigations) -- front (localhost:3000/3002) and API (localhost:4000)
+    // are different origins, so the silent-refresh POST never carried this
+    // cookie and every page reload forced a re-login. 'none' fixes that;
+    // it requires `secure: true`, which works fine here because Chrome/
+    // Firefox/Safari all treat http://localhost as a secure context even
+    // without HTTPS.
+    sameSite: 'none' as const,
+    secure: true,
     path: REFRESH_COOKIE_PATH,
   };
 }

@@ -6,13 +6,14 @@ const EXERCISE_HISTORY_LIMIT = 12;
 
 export interface SessionVolumePoint {
   workoutDate: string;
+  sourceRoutineId: string | null;
   volume: number;
   exercises: { name: string; weight: number | null; sets: number; reps: number[] }[];
 }
 
 export interface ExercisePerformanceSeries {
   name: string;
-  history: { workoutDate: string; weight: number | null; totalReps: number }[];
+  history: { workoutDate: string; sourceRoutineId: string | null; weight: number | null; totalReps: number }[];
 }
 
 export interface WorkoutPerformance {
@@ -32,6 +33,7 @@ export class GetWorkoutPerformanceUseCase {
       .sort((a, b) => a.workoutDate.localeCompare(b.workoutDate))
       .map((w) => ({
         workoutDate: w.workoutDate,
+        sourceRoutineId: w.sourceRoutineId,
         volume: w.totalVolume,
         exercises: w.exercises.map((ex) => ex.toJSON()),
       }));
