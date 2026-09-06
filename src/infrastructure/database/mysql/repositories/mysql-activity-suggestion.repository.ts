@@ -20,9 +20,9 @@ interface ActivitySuggestionRow extends RowDataPacket {
   suggested_start_time: string | null;
   suggested_end_time: string | null;
   suggested_duration_minutes: number | null;
-  suggested_start_date: string | null;
-  suggested_end_date: string | null;
-  confidence: number;
+  suggested_start_date: string | Date | null;
+  suggested_end_date: string | Date | null;
+  confidence: number | string;
   sample_count: number;
   distinct_weeks: number;
   reason: string;
@@ -46,6 +46,11 @@ function parseDays(value: string | number[] | null): number[] | null {
   }
 }
 
+function dateOnly(value: string | Date | null): string | null {
+  if (value === null) return null;
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
+}
+
 function toEntity(row: ActivitySuggestionRow): ActivitySuggestion {
   const props: ActivitySuggestionProps = {
     id: row.id,
@@ -60,9 +65,9 @@ function toEntity(row: ActivitySuggestionRow): ActivitySuggestion {
     suggestedStartTime: row.suggested_start_time ? row.suggested_start_time.slice(0, 5) : null,
     suggestedEndTime: row.suggested_end_time ? row.suggested_end_time.slice(0, 5) : null,
     suggestedDurationMinutes: row.suggested_duration_minutes,
-    suggestedStartDate: row.suggested_start_date,
-    suggestedEndDate: row.suggested_end_date,
-    confidence: row.confidence,
+    suggestedStartDate: dateOnly(row.suggested_start_date),
+    suggestedEndDate: dateOnly(row.suggested_end_date),
+    confidence: Number(row.confidence),
     sampleCount: row.sample_count,
     distinctWeeks: row.distinct_weeks,
     reason: row.reason,
@@ -124,7 +129,12 @@ export class MysqlActivitySuggestionRepository implements ActivitySuggestionRepo
   async findPendingByUser(userId: string): Promise<ActivitySuggestion[]> {
     const [rows] = await this.pool.query<ActivitySuggestionRow[]>(
       `SELECT * FROM activity_suggestions WHERE user_id = ? AND status = 'pending'
-       ORDER BY confidence DESC, created_at DESC`,
+       ORDER BY
+         FIELD(suggestion_type, 'update_routine', 'suggest_schedule', 'create_routine',
+           'fill_activity_fields', 'suggest_category', 'suggest_activity_name',
+           'suggest_duration', 'suggest_next_occurrence'),
+         confidence DESC,
+         created_at DESC`,
       [userId],
     );
     return rows.map(toEntity);
@@ -143,6 +153,20 @@ export class MysqlActivitySuggestionRepository implements ActivitySuggestionRepo
     );
     const [row] = rows;
     return row ? toEntity(row) : null;
+  }
+
+  async updatePendingDuplicatesStatus(
+    userId: string,
+    target: SuggestionTarget,
+    status: SuggestionStatus,
+  ): Promise<void> {
+    await this.pool.query(
+      `UPDATE activity_suggestions
+       SET status = ?
+       WHERE user_id = ? AND status = 'pending' AND suggestion_type = ?
+         AND activity_id <=> ? AND routine_id <=> ? AND category_id <=> ?`,
+      [status, userId, target.suggestionType, target.activityId, target.routineId, target.categoryId],
+    );
   }
 
   async countRecentByStatusForTarget(

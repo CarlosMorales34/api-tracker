@@ -7,7 +7,7 @@ import { durationHours } from '../../../../shared/utils/analytics-calculations';
 interface ActivityLogRow extends RowDataPacket {
   id: string;
   activity_id: string;
-  log_date: string;
+  log_date: string | Date;
   hours: number;
   note: string | null;
 }
@@ -18,7 +18,7 @@ interface ActivityLogDetailRow extends RowDataPacket {
   category_id: string;
   category_name: string;
   category_color: string;
-  log_date: string;
+  log_date: string | Date;
   hours: number;
 }
 
@@ -38,9 +38,13 @@ interface ManualActivityTimeRow extends RowDataPacket {
   activity_id: string;
   activity_name: string;
   category_id: string;
-  log_date: string;
+  log_date: string | Date;
   start_time: string;
   end_time: string;
+}
+
+function dateOnly(value: string | Date): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
 }
 
 export class MysqlActivityLogRepository implements ActivityLogRepository {
@@ -62,7 +66,7 @@ export class MysqlActivityLogRepository implements ActivityLogRepository {
       activityId: row.activity_id,
       activityName: row.activity_name,
       categoryId: row.category_id,
-      logDate: row.log_date,
+      logDate: dateOnly(row.log_date),
       startTime: row.start_time.slice(0, 5),
       endTime: row.end_time.slice(0, 5),
     }));
@@ -81,7 +85,7 @@ export class MysqlActivityLogRepository implements ActivityLogRepository {
     return rows.map((row) => ({
       id: row.id,
       activityId: row.activity_id,
-      logDate: row.log_date,
+      logDate: dateOnly(row.log_date),
       hours: row.hours,
       note: row.note,
     }));
@@ -106,7 +110,7 @@ export class MysqlActivityLogRepository implements ActivityLogRepository {
       categoryId: row.category_id,
       categoryName: row.category_name,
       categoryColor: row.category_color,
-      logDate: row.log_date,
+      logDate: dateOnly(row.log_date),
       hours: row.hours,
     }));
   }

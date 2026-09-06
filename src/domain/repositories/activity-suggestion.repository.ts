@@ -14,6 +14,7 @@ export interface ActivitySuggestionRepository {
   // Evita generar una sugerencia duplicada del mismo patrón mientras la
   // anterior sigue pendiente (mismo tipo + mismo objetivo relacionado).
   findPendingDuplicate(userId: string, target: SuggestionTarget): Promise<ActivitySuggestion | null>;
+  updatePendingDuplicatesStatus(userId: string, target: SuggestionTarget, status: SuggestionStatus): Promise<void>;
   // Cuenta sugerencias de este tipo/objetivo que tuvieron alguno de los
   // `statuses` desde `sinceDate` -- alimenta el dismissal/acceptance factor
   // de computeConfidence().

@@ -297,6 +297,7 @@ export function createServer(pool: Pool): Express {
     activityRepository,
     createFixedRoutineUseCase,
     updateFixedRoutineUseCase,
+    putRoutineLogUseCase,
   );
   const dismissSuggestionUseCase = new DismissSuggestionUseCase(activitySuggestionRepository, suggestionFeedbackRepository);
   const clearSuggestionHistoryUseCase = new ClearSuggestionHistoryUseCase(

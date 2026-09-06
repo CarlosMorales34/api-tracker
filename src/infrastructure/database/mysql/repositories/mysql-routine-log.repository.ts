@@ -16,9 +16,13 @@ interface ManualRoutineTimeRow extends RowDataPacket {
   routine_id: string;
   routine_name: string;
   is_sleep: number;
-  log_date: string;
+  log_date: string | Date;
   start_time: string;
   end_time: string;
+}
+
+function dateOnly(value: string | Date): string {
+  return value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
 }
 
 export class MysqlRoutineLogRepository implements RoutineLogRepository {
@@ -39,7 +43,7 @@ export class MysqlRoutineLogRepository implements RoutineLogRepository {
       routineId: row.routine_id,
       routineName: row.routine_name,
       isSleep: Boolean(row.is_sleep),
-      logDate: row.log_date,
+      logDate: dateOnly(row.log_date),
       startTime: row.start_time.slice(0, 5),
       endTime: row.end_time.slice(0, 5),
     }));

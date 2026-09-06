@@ -5,6 +5,7 @@ import { ActivityRepository } from '../../../domain/repositories/activity.reposi
 import { ActivitySuggestionRepository } from '../../../domain/repositories/activity-suggestion.repository';
 import { SuggestionFeedbackRepository } from '../../../domain/repositories/suggestion-feedback.repository';
 import { CreateFixedRoutineUseCase } from '../fixed-routine/create-fixed-routine.use-case';
+import { PutRoutineLogUseCase } from '../fixed-routine/put-routine-log.use-case';
 import { UpdateFixedRoutineUseCase } from '../fixed-routine/update-fixed-routine.use-case';
 
 export interface AcceptSuggestionInput {
@@ -31,6 +32,15 @@ function asWeekdaysOrNull(value: unknown, fallback: number[] | null): number[] |
   return Array.isArray(value) && value.every((day) => typeof day === 'number') ? (value as number[]) : fallback;
 }
 
+function asTimeOrNull(value: unknown, fallback: string | null): string | null {
+  if (value === undefined) return fallback;
+  return typeof value === 'string' && /^\d{2}:\d{2}$/.test(value) ? value : fallback;
+}
+
+function asDateOrNull(value: unknown): string | null {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
 // El usuario confirma o corrige la sugerencia. Para la mayoría de los tipos
 // esto NO crea nada por sí solo -- el front usa los valores (aceptados o
 // editados) como punto de partida del formulario normal. Dos excepciones
@@ -47,6 +57,7 @@ export class AcceptSuggestionUseCase {
     private readonly activityRepository: ActivityRepository,
     private readonly createFixedRoutineUseCase: CreateFixedRoutineUseCase,
     private readonly updateFixedRoutineUseCase: UpdateFixedRoutineUseCase,
+    private readonly putRoutineLogUseCase: PutRoutineLogUseCase,
   ) {}
 
   async execute(userId: string, suggestionId: string, input: AcceptSuggestionInput): Promise<void> {
@@ -98,7 +109,7 @@ export class AcceptSuggestionUseCase {
     const overrideName = typeof overrides.routineName === 'string' ? overrides.routineName.trim() : '';
     const name = overrideName || activity?.name || 'Rutina sugerida';
 
-    await this.createFixedRoutineUseCase.execute(userId, {
+    const routine = await this.createFixedRoutineUseCase.execute(userId, {
       name,
       icon: 'moon',
       type: 'range',
@@ -107,6 +118,7 @@ export class AcceptSuggestionUseCase {
       startDate: asStringOrNull(overrides.suggestedStartDate, snapshot.suggestedStartDate as string | null),
       endDate: asStringOrNull(overrides.suggestedEndDate, snapshot.suggestedEndDate as string | null),
     });
+    await this.applySuggestedTimeForDate(userId, routine.id, suggestion, overrides);
   }
 
   private async updateRoutineFromSuggestion(
@@ -121,5 +133,20 @@ export class AcceptSuggestionUseCase {
     await this.updateFixedRoutineUseCase.execute(userId, routineId, {
       weekdays: asWeekdaysOrNull(overrides.suggestedDays, snapshot.suggestedDays as number[] | null),
     });
+    await this.applySuggestedTimeForDate(userId, routineId, suggestion, overrides);
+  }
+
+  private async applySuggestedTimeForDate(
+    userId: string,
+    routineId: string,
+    suggestion: ActivitySuggestion,
+    overrides: Record<string, unknown>,
+  ): Promise<void> {
+    const snapshot = suggestion.suggestedValuesSnapshot();
+    const logDate = asDateOrNull(overrides.logDate);
+    const start = asTimeOrNull(overrides.suggestedStartTime, snapshot.suggestedStartTime as string | null);
+    const end = asTimeOrNull(overrides.suggestedEndTime, snapshot.suggestedEndTime as string | null);
+    if (!logDate || !start || !end) return;
+    await this.putRoutineLogUseCase.execute(userId, routineId, logDate, [{ start, end }]);
   }
 }

@@ -11,6 +11,15 @@ export const SUGGESTION_THRESHOLDS = {
   MIN_DISTINCT_WEEKS: 3,
   // Debajo de esto, la sugerencia se calcula pero no se muestra al usuario.
   MIN_CONFIDENCE_TO_SHOW: 0.7,
+  // Para crear rutinas nuevas desde actividades se exige una coincidencia
+  // más fuerte que para ajustar rutinas fijas existentes. Una actividad
+  // ocasional con muchas horas (ej. entretenimiento algunos días) no debe
+  // aparecer como rutina recomendada si no es claramente repetible.
+  MIN_ACTIVITY_MATCH_RATIO_TO_CREATE_ROUTINE: 0.7,
+  // Las rutinas fijas ya son una intención explícita del usuario; con buen
+  // volumen de historial basta una coincidencia moderada para sugerir días/
+  // horario y dejar que el usuario confirme.
+  MIN_ROUTINE_MATCH_RATIO_TO_UPDATE: 0.6,
   // Ventana de historial que analiza el detector, en semanas hacia atrás.
   PATTERN_LOOKBACK_WEEKS: 8,
 

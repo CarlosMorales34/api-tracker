@@ -37,6 +37,48 @@ function extractSuggestedMinutes(
   return typeof raw === 'string' ? parseHHMMToMinutes(raw) : null;
 }
 
+function computeHabitConfidence(input: {
+  sampleCount: number;
+  distinctWeeks: number;
+  daysSinceLastSample: number;
+  recentDismissalsForSimilar: number;
+  recentAcceptancesForSimilar: number;
+}): number {
+  const t = SUGGESTION_THRESHOLDS;
+  const sampleFactor = Math.min(1, input.sampleCount / (t.MIN_SAMPLE_COUNT * t.SAMPLE_FACTOR_SATURATION_MULTIPLIER));
+  const weekFactor = Math.min(1, input.distinctWeeks / (t.MIN_DISTINCT_WEEKS * t.WEEK_FACTOR_SATURATION_MULTIPLIER));
+  const recencyFactor = Math.min(1, Math.max(0, 1 - input.daysSinceLastSample / t.RECENCY_DECAY_DAYS));
+  const dismissalPenalty = Math.min(1, Math.max(0, 1 - input.recentDismissalsForSimilar * t.DISMISSAL_PENALTY_PER_EVENT));
+  const acceptanceBoost = 1 + input.recentAcceptancesForSimilar * t.ACCEPTANCE_BOOST_PER_EVENT;
+  return Math.round(Math.min(1, sampleFactor * weekFactor * recencyFactor * dismissalPenalty * acceptanceBoost) * 1000) / 1000;
+}
+
+function confidenceForSuggestion(input: {
+  sampleCount: number;
+  distinctWeeks: number;
+  scheduleDispersionMinutes: number;
+  daysSinceLastSample: number;
+  recentDismissalsForSimilar: number;
+  recentAcceptancesForSimilar: number;
+}): number {
+  const scheduleConfidence = computeConfidence(input);
+  const habitConfidence = computeHabitConfidence(input);
+  return Math.max(scheduleConfidence, habitConfidence);
+}
+
+function describeScheduleCertainty(dispersionMinutes: number): string {
+  if (dispersionMinutes <= SUGGESTION_THRESHOLDS.MAX_DISPERSION_MINUTES_FOR_ZERO_CONFIDENCE) return '';
+  return ' · horario estimado, varía bastante';
+}
+
+function activityPatternCanCreateRoutine(matchRatio: number): boolean {
+  return matchRatio >= SUGGESTION_THRESHOLDS.MIN_ACTIVITY_MATCH_RATIO_TO_CREATE_ROUTINE;
+}
+
+function routinePatternCanUpdate(matchRatio: number): boolean {
+  return matchRatio >= SUGGESTION_THRESHOLDS.MIN_ROUTINE_MATCH_RATIO_TO_UPDATE;
+}
+
 // El generador: toma los patrones que ya calculó el detector y decide
 // cuáles convertir en una ActivitySuggestion real (persistida, pendiente de
 // decisión). Aplica el umbral de confianza mínima, evita duplicar una
@@ -84,6 +126,92 @@ export class GenerateSuggestionsUseCase {
     const created: ActivitySuggestion[] = [];
     const sinceDate = new Date(Date.now() - SUGGESTION_THRESHOLDS.RECENCY_DECAY_DAYS * 86400000);
 
+    const routineById = new Map(existingRoutines.map((routine) => [routine.id, routine]));
+
+    for (const pattern of routinePatterns) {
+      const routine = routineById.get(pattern.routineId);
+      if (!routine) continue; // la rutina se borró entre el detect y el generate -- no sugerir sobre algo que ya no existe
+
+      // Ya coincide con lo que la rutina tiene guardado -- nada nuevo que sugerir.
+      const currentWeekdays = routine.weekdays ? [...routine.weekdays].sort((a, b) => a - b) : null;
+      const patternWeekdaysSorted = [...pattern.weekdays].sort((a, b) => a - b);
+      if (currentWeekdays !== null && JSON.stringify(currentWeekdays) === JSON.stringify(patternWeekdaysSorted)) {
+        continue;
+      }
+
+      const target = { suggestionType: 'update_routine' as const, activityId: null, routineId: pattern.routineId };
+
+      const alreadyPending = await this.activitySuggestionRepository.findPendingDuplicate(userId, {
+        ...target,
+        categoryId: null,
+      });
+      if (!routinePatternCanUpdate(pattern.matchRatio)) {
+        if (alreadyPending) await this.activitySuggestionRepository.updatePendingDuplicatesStatus(userId, { ...target, categoryId: null }, 'expired');
+        continue;
+      }
+      if (alreadyPending) continue;
+
+      const [recentDismissals, recentAcceptances] = await Promise.all([
+        this.activitySuggestionRepository.countRecentByStatusForTarget(userId, target, ['dismissed'], sinceDate),
+        this.activitySuggestionRepository.countRecentByStatusForTarget(
+          userId,
+          target,
+          ['accepted', 'accepted_with_changes'],
+          sinceDate,
+        ),
+      ]);
+
+      const scheduleDispersionMinutes = Math.max(pattern.startDispersionMinutes, pattern.durationDispersionMinutes);
+      const confidence = confidenceForSuggestion({
+        sampleCount: pattern.sampleCount,
+        distinctWeeks: pattern.distinctWeeks,
+        scheduleDispersionMinutes,
+        daysSinceLastSample: pattern.lastSeenDaysAgo,
+        recentDismissalsForSimilar: recentDismissals,
+        recentAcceptancesForSimilar: recentAcceptances,
+      });
+      if (!meetsShowThreshold(confidence)) continue;
+
+      const corrections = await this.suggestionFeedbackRepository.findRecentCorrectionsForTarget(
+        userId,
+        { activityId: null, routineId: pattern.routineId },
+        SUGGESTION_THRESHOLDS.RECENT_CORRECTIONS_WINDOW,
+      );
+      const startCorrections = corrections
+        .map((feedback) => extractSuggestedMinutes(feedback.finalValues, 'suggestedStartTime'))
+        .filter((value): value is number => value !== null);
+      const endCorrections = corrections
+        .map((feedback) => extractSuggestedMinutes(feedback.finalValues, 'suggestedEndTime'))
+        .filter((value): value is number => value !== null);
+
+      const blendedStartMinutes = blendMinutesWithCorrections(parseHHMMToMinutes(pattern.startTime), startCorrections);
+      const blendedEndMinutes = blendMinutesWithCorrections(parseHHMMToMinutes(pattern.endTime), endCorrections);
+
+      const percent = Math.round(pattern.matchRatio * 100);
+      const prefix = currentWeekdays === null ? 'Podemos confirmar el horario de tu rutina: ' : 'Tu rutina cambió de patrón: ';
+      const reason =
+        `${prefix}${describeWeekdays(pattern.weekdays)} · ${formatMinutesAsHHMM(blendedStartMinutes)}-${formatMinutesAsHHMM(blendedEndMinutes)} · ` +
+        `${pattern.sampleCount} registros en ${pattern.distinctWeeks} semanas · ${percent}% de coincidencia${describeScheduleCertainty(scheduleDispersionMinutes)}`;
+
+      const suggestion = ActivitySuggestion.create({
+        id: randomUUID(),
+        userId,
+        suggestionType: 'update_routine',
+        routineId: pattern.routineId,
+        suggestedDays: pattern.weekdays,
+        suggestedStartTime: formatMinutesAsHHMM(blendedStartMinutes),
+        suggestedEndTime: formatMinutesAsHHMM(blendedEndMinutes),
+        suggestedDurationMinutes: pattern.durationMinutes,
+        confidence,
+        sampleCount: pattern.sampleCount,
+        distinctWeeks: pattern.distinctWeeks,
+        reason,
+      });
+
+      await this.activitySuggestionRepository.save(suggestion);
+      created.push(suggestion);
+    }
+
     const activityIdsWithRoutine = new Set(
       existingRoutines.map((routine) => routine.linkedActivityId).filter((id): id is string => id !== null),
     );
@@ -100,8 +228,18 @@ export class GenerateSuggestionsUseCase {
 
       const alreadyPending = await this.activitySuggestionRepository.findPendingDuplicate(userId, {
         ...target,
-        categoryId: null,
+        categoryId: pattern.categoryId,
       });
+      if (suggestionType === 'create_routine' && !activityPatternCanCreateRoutine(pattern.matchRatio)) {
+        if (alreadyPending) {
+          await this.activitySuggestionRepository.updatePendingDuplicatesStatus(
+            userId,
+            { ...target, categoryId: pattern.categoryId },
+            'expired',
+          );
+        }
+        continue;
+      }
       if (alreadyPending) continue;
 
       const [recentDismissals, recentAcceptances] = await Promise.all([
@@ -114,10 +252,11 @@ export class GenerateSuggestionsUseCase {
         ),
       ]);
 
-      const confidence = computeConfidence({
+      const scheduleDispersionMinutes = Math.max(pattern.startDispersionMinutes, pattern.durationDispersionMinutes);
+      const confidence = confidenceForSuggestion({
         sampleCount: pattern.sampleCount,
         distinctWeeks: pattern.distinctWeeks,
-        scheduleDispersionMinutes: Math.max(pattern.startDispersionMinutes, pattern.durationDispersionMinutes),
+        scheduleDispersionMinutes,
         daysSinceLastSample: pattern.lastSeenDaysAgo,
         recentDismissalsForSimilar: recentDismissals,
         recentAcceptancesForSimilar: recentAcceptances,
@@ -146,7 +285,7 @@ export class GenerateSuggestionsUseCase {
       const prefix = suggestionType === 'create_routine' ? 'Podrías convertir esto en rutina: ' : '';
       const reason =
         `${prefix}${describeWeekdays(pattern.weekdays)} · ${formatMinutesAsHHMM(blendedStartMinutes)}-${formatMinutesAsHHMM(blendedEndMinutes)} · ` +
-        `${pattern.sampleCount} registros en ${pattern.distinctWeeks} semanas · ${percent}% de coincidencia`;
+        `${pattern.sampleCount} registros en ${pattern.distinctWeeks} semanas · ${percent}% de coincidencia${describeScheduleCertainty(scheduleDispersionMinutes)}`;
 
       const suggestion = ActivitySuggestion.create({
         id: randomUUID(),
@@ -172,88 +311,6 @@ export class GenerateSuggestionsUseCase {
       await this.activitySuggestionRepository.save(suggestion);
       created.push(suggestion);
     }
-
-    const routineById = new Map(existingRoutines.map((routine) => [routine.id, routine]));
-
-    for (const pattern of routinePatterns) {
-      const routine = routineById.get(pattern.routineId);
-      if (!routine) continue; // la rutina se borró entre el detect y el generate -- no sugerir sobre algo que ya no existe
-
-      // Ya coincide con lo que la rutina tiene guardado -- nada nuevo que sugerir.
-      const currentWeekdays = routine.weekdays ? [...routine.weekdays].sort((a, b) => a - b) : null;
-      const patternWeekdaysSorted = [...pattern.weekdays].sort((a, b) => a - b);
-      if (currentWeekdays !== null && JSON.stringify(currentWeekdays) === JSON.stringify(patternWeekdaysSorted)) {
-        continue;
-      }
-
-      const target = { suggestionType: 'update_routine' as const, activityId: null, routineId: pattern.routineId };
-
-      const alreadyPending = await this.activitySuggestionRepository.findPendingDuplicate(userId, {
-        ...target,
-        categoryId: null,
-      });
-      if (alreadyPending) continue;
-
-      const [recentDismissals, recentAcceptances] = await Promise.all([
-        this.activitySuggestionRepository.countRecentByStatusForTarget(userId, target, ['dismissed'], sinceDate),
-        this.activitySuggestionRepository.countRecentByStatusForTarget(
-          userId,
-          target,
-          ['accepted', 'accepted_with_changes'],
-          sinceDate,
-        ),
-      ]);
-
-      const confidence = computeConfidence({
-        sampleCount: pattern.sampleCount,
-        distinctWeeks: pattern.distinctWeeks,
-        scheduleDispersionMinutes: Math.max(pattern.startDispersionMinutes, pattern.durationDispersionMinutes),
-        daysSinceLastSample: pattern.lastSeenDaysAgo,
-        recentDismissalsForSimilar: recentDismissals,
-        recentAcceptancesForSimilar: recentAcceptances,
-      });
-      if (!meetsShowThreshold(confidence)) continue;
-
-      const corrections = await this.suggestionFeedbackRepository.findRecentCorrectionsForTarget(
-        userId,
-        { activityId: null, routineId: pattern.routineId },
-        SUGGESTION_THRESHOLDS.RECENT_CORRECTIONS_WINDOW,
-      );
-      const startCorrections = corrections
-        .map((feedback) => extractSuggestedMinutes(feedback.finalValues, 'suggestedStartTime'))
-        .filter((value): value is number => value !== null);
-      const endCorrections = corrections
-        .map((feedback) => extractSuggestedMinutes(feedback.finalValues, 'suggestedEndTime'))
-        .filter((value): value is number => value !== null);
-
-      const blendedStartMinutes = blendMinutesWithCorrections(parseHHMMToMinutes(pattern.startTime), startCorrections);
-      const blendedEndMinutes = blendMinutesWithCorrections(parseHHMMToMinutes(pattern.endTime), endCorrections);
-
-      const percent = Math.round(pattern.matchRatio * 100);
-      const prefix = currentWeekdays === null ? 'Podemos confirmar el horario de tu rutina: ' : 'Tu rutina cambió de patrón: ';
-      const reason =
-        `${prefix}${describeWeekdays(pattern.weekdays)} · ${formatMinutesAsHHMM(blendedStartMinutes)}-${formatMinutesAsHHMM(blendedEndMinutes)} · ` +
-        `${pattern.sampleCount} registros en ${pattern.distinctWeeks} semanas · ${percent}% de coincidencia`;
-
-      const suggestion = ActivitySuggestion.create({
-        id: randomUUID(),
-        userId,
-        suggestionType: 'update_routine',
-        routineId: pattern.routineId,
-        suggestedDays: pattern.weekdays,
-        suggestedStartTime: formatMinutesAsHHMM(blendedStartMinutes),
-        suggestedEndTime: formatMinutesAsHHMM(blendedEndMinutes),
-        suggestedDurationMinutes: pattern.durationMinutes,
-        confidence,
-        sampleCount: pattern.sampleCount,
-        distinctWeeks: pattern.distinctWeeks,
-        reason,
-      });
-
-      await this.activitySuggestionRepository.save(suggestion);
-      created.push(suggestion);
-    }
-
     return created;
   }
 }
