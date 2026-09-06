@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Pool, RowDataPacket } from 'mysql2/promise';
-import { RoutineLogRepository, RoutineLogTime } from '../../../../domain/repositories/routine-log.repository';
+import { ManualRoutineTimeEntry, RoutineLogRepository, RoutineLogTime } from '../../../../domain/repositories/routine-log.repository';
 
 interface RoutineLogTimeRow extends RowDataPacket {
   routine_id: string;
@@ -12,8 +12,38 @@ interface RoutineLogIdRow extends RowDataPacket {
   id: string;
 }
 
+interface ManualRoutineTimeRow extends RowDataPacket {
+  routine_id: string;
+  routine_name: string;
+  is_sleep: number;
+  log_date: string;
+  start_time: string;
+  end_time: string;
+}
+
 export class MysqlRoutineLogRepository implements RoutineLogRepository {
   constructor(private readonly pool: Pool) {}
+
+  async findTimesByUserAndDateRange(userId: string, from: string, to: string): Promise<ManualRoutineTimeEntry[]> {
+    const [rows] = await this.pool.query<ManualRoutineTimeRow[]>(
+      `SELECT fr.id AS routine_id, fr.name AS routine_name, fr.is_sleep AS is_sleep,
+              rl.log_date AS log_date, rlt.start_time AS start_time, rlt.end_time AS end_time
+       FROM routine_log_times rlt
+       INNER JOIN routine_logs rl ON rl.id = rlt.routine_log_id
+       INNER JOIN fixed_routines fr ON fr.id = rl.routine_id
+       WHERE fr.user_id = ? AND rl.log_date BETWEEN ? AND ? AND rlt.end_time IS NOT NULL
+       ORDER BY rl.log_date ASC, rlt.sort_order ASC`,
+      [userId, from, to],
+    );
+    return rows.map((row) => ({
+      routineId: row.routine_id,
+      routineName: row.routine_name,
+      isSleep: Boolean(row.is_sleep),
+      logDate: row.log_date,
+      startTime: row.start_time.slice(0, 5),
+      endTime: row.end_time.slice(0, 5),
+    }));
+  }
 
   async findTimesByRoutineAndDate(routineId: string, logDate: string): Promise<RoutineLogTime[]> {
     const result = await this.findTimesByRoutineIdsAndDate([routineId], logDate);

@@ -19,3 +19,18 @@ export function validateBody(schema: ZodType): RequestHandler {
     next();
   };
 }
+
+export function validateQuery(schema: ZodType): RequestHandler {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req.query);
+    if (!result.success) {
+      res.status(400).json({
+        message: 'Validation error',
+        errors: result.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    next();
+  };
+}

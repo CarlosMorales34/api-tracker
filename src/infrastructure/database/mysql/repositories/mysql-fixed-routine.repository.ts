@@ -10,8 +10,22 @@ interface FixedRoutineRow extends RowDataPacket {
   type: FixedRoutineType;
   linked_activity_id: string | null;
   is_sleep: number;
+  weekdays: string | number[] | null;
+  start_date: string | null;
+  end_date: string | null;
   sort_order: number;
   created_at: Date;
+}
+
+function parseWeekdays(value: string | number[] | null): number[] | null {
+  if (value === null) return null;
+  if (Array.isArray(value)) return value;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 interface CountRow extends RowDataPacket {
@@ -23,10 +37,14 @@ export class MysqlFixedRoutineRepository implements FixedRoutineRepository {
 
   async save(routine: FixedRoutine): Promise<void> {
     await this.pool.query(
-      `INSERT INTO fixed_routines (id, user_id, name, icon, type, linked_activity_id, is_sleep, sort_order, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO fixed_routines (
+         id, user_id, name, icon, type, linked_activity_id, is_sleep, weekdays, start_date, end_date, sort_order, created_at
+       )
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE name = VALUES(name), icon = VALUES(icon), type = VALUES(type),
-         linked_activity_id = VALUES(linked_activity_id), is_sleep = VALUES(is_sleep), sort_order = VALUES(sort_order)`,
+         linked_activity_id = VALUES(linked_activity_id), is_sleep = VALUES(is_sleep),
+         weekdays = VALUES(weekdays), start_date = VALUES(start_date), end_date = VALUES(end_date),
+         sort_order = VALUES(sort_order)`,
       [
         routine.id,
         routine.userId,
@@ -35,6 +53,9 @@ export class MysqlFixedRoutineRepository implements FixedRoutineRepository {
         routine.type,
         routine.linkedActivityId,
         routine.isSleep,
+        routine.weekdays === null ? null : JSON.stringify(routine.weekdays),
+        routine.startDate,
+        routine.endDate,
         routine.sortOrder,
         routine.createdAt,
       ],
@@ -79,6 +100,9 @@ export class MysqlFixedRoutineRepository implements FixedRoutineRepository {
       type: row.type,
       linkedActivityId: row.linked_activity_id,
       isSleep: Boolean(row.is_sleep),
+      weekdays: parseWeekdays(row.weekdays),
+      startDate: row.start_date,
+      endDate: row.end_date,
       sortOrder: row.sort_order,
       createdAt: new Date(row.created_at),
     });

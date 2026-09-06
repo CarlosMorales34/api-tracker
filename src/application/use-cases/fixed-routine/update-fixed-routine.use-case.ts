@@ -10,6 +10,9 @@ export interface UpdateFixedRoutineDto {
   type?: FixedRoutineType;
   linkedActivityId?: string | null;
   isSleep?: boolean;
+  weekdays?: number[] | null;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 
 export class UpdateFixedRoutineUseCase {

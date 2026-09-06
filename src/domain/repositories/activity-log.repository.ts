@@ -12,7 +12,25 @@ export interface ActivityLogTime {
   routineName: string | null;
 }
 
+// Una entrada individual de horario CAPTURADA A MANO (source='manual') --
+// el detector de patrones (activity-pattern-calculations.ts) solo debe ver
+// estas, nunca las source='routine', para no entrar en el ciclo de
+// autoaprendizaje que advierte el spec: una actividad reflejada desde una
+// rutina fija no es evidencia de comportamiento independiente.
+export interface ManualActivityTimeEntry {
+  activityId: string;
+  activityName: string;
+  categoryId: string;
+  logDate: string; // 'YYYY-MM-DD'
+  startTime: string; // 'HH:MM'
+  endTime: string; // 'HH:MM'
+}
+
 export interface ActivityLogRepository {
+  // Historial "limpio" para el detector de patrones -- filtrado a
+  // source='manual' en la query, no en memoria, para que sea imposible que
+  // un bloque reflejado de rutina se cuele por accidente.
+  findManualTimesByUserAndDateRange(userId: string, from: string, to: string): Promise<ManualActivityTimeEntry[]>;
   // GET /api/activity-logs — join contra activities->activity_categories
   // solo para filtrar por dueño (activity_logs no tiene user_id propio).
   findByUserAndDateRange(userId: string, from: string, to: string): Promise<ActivityLog[]>;

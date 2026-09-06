@@ -11,11 +11,13 @@ import { ExpensesController } from '../controllers/expenses.controller';
 import { WeightController } from '../controllers/weight.controller';
 import { WeeklyLogController } from '../controllers/weekly-log.controller';
 import { HomeController } from '../controllers/home.controller';
+import { AnalyticsController } from '../controllers/analytics.controller';
 import { CreditCardController } from '../controllers/credit-card.controller';
 import { WorkoutController } from '../controllers/workout.controller';
 import { WorkoutRoutineController } from '../controllers/workout-routine.controller';
 import { UserController } from '../controllers/user.controller';
 import { BodyProgressController } from '../controllers/body-progress.controller';
+import { ActivitySuggestionController } from '../controllers/activity-suggestion.controller';
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { authRateLimiter } from '../middlewares/rate-limiters.middleware';
 import { authRoutes } from './auth.routes';
@@ -30,11 +32,13 @@ import { expensesRoutes } from './expenses.routes';
 import { weightRoutes } from './weight.routes';
 import { weeklyLogRoutes } from './weekly-log.routes';
 import { homeRoutes } from './home.routes';
+import { analyticsRoutes } from './analytics.routes';
 import { creditCardRoutes } from './credit-card.routes';
 import { workoutRoutes } from './workout.routes';
 import { workoutRoutineRoutes } from './workout-routine.routes';
 import { userRoutes } from './user.routes';
 import { bodyGoalRoutes, bodyMeasurementRoutes } from './body-progress.routes';
+import { activitySuggestionRoutes } from './activity-suggestion.routes';
 
 export interface ApiRoutesDeps {
   authController: AuthController;
@@ -44,6 +48,7 @@ export interface ApiRoutesDeps {
   metricEntryController: MetricEntryController;
   activityCategoryController: ActivityCategoryController;
   activityController: ActivityController;
+  activitySuggestionController: ActivitySuggestionController;
   fixedRoutineController: FixedRoutineController;
   activityLogController: ActivityLogController;
   financeController: FinanceController;
@@ -51,6 +56,7 @@ export interface ApiRoutesDeps {
   weightController: WeightController;
   weeklyLogController: WeeklyLogController;
   homeController: HomeController;
+  analyticsController: AnalyticsController;
   creditCardController: CreditCardController;
   workoutController: WorkoutController;
   workoutRoutineController: WorkoutRoutineController;
@@ -90,6 +96,10 @@ export function apiRoutes(deps: ApiRoutesDeps): Router {
   );
   router.use('/activity-logs', activityLogRoutes(deps.activityLogController, deps.authenticateMiddleware));
   router.use(
+    '/activity-suggestions',
+    activitySuggestionRoutes(deps.activitySuggestionController, deps.authenticateMiddleware),
+  );
+  router.use(
     '/finance',
     financeRoutes(deps.financeController, deps.authenticateMiddleware, deps.idempotencyRepository),
   );
@@ -103,6 +113,7 @@ export function apiRoutes(deps: ApiRoutesDeps): Router {
     weeklyLogRoutes(deps.weeklyLogController, deps.authenticateMiddleware, deps.idempotencyRepository),
   );
   router.use('/home', homeRoutes(deps.homeController, deps.authenticateMiddleware));
+  router.use('/analytics', analyticsRoutes(deps.analyticsController, deps.authenticateMiddleware));
   router.use(
     '/credit-cards',
     creditCardRoutes(deps.creditCardController, deps.authenticateMiddleware, deps.idempotencyRepository),

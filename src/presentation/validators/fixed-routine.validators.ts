@@ -1,11 +1,17 @@
 import { z } from 'zod';
 
+const weekdaysSchema = z.array(z.number().int().min(0).max(6)).min(1).max(7).nullable().optional();
+const dateOnlySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD').nullable().optional();
+
 export const createFixedRoutineSchema = z.object({
   name: z.string().trim().min(1).max(150),
   icon: z.string().trim().min(1).max(30),
   type: z.enum(['single', 'range']),
   linkedActivityId: z.string().uuid().nullable().optional(),
   isSleep: z.boolean().optional(),
+  weekdays: weekdaysSchema,
+  startDate: dateOnlySchema,
+  endDate: dateOnlySchema,
 });
 
 export const updateFixedRoutineSchema = z.object({
@@ -14,6 +20,9 @@ export const updateFixedRoutineSchema = z.object({
   type: z.enum(['single', 'range']).optional(),
   linkedActivityId: z.string().uuid().nullable().optional(),
   isSleep: z.boolean().optional(),
+  weekdays: weekdaysSchema,
+  startDate: dateOnlySchema,
+  endDate: dateOnlySchema,
 });
 
 const timeOfDaySchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Expected HH:MM');

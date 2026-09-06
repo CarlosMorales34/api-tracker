@@ -1,6 +1,7 @@
 import { ActivityLogRepository } from '../../../domain/repositories/activity-log.repository';
 import { FixedRoutineRepository } from '../../../domain/repositories/fixed-routine.repository';
 import { RoutineLogRepository } from '../../../domain/repositories/routine-log.repository';
+import { durationHours, round2 } from '../../../shared/utils/analytics-calculations';
 
 export interface DailyProductivity {
   logDate: string;
@@ -34,7 +35,7 @@ export class GetDailyProductivityUseCase {
       for (const times of timesByRoutine.values()) {
         for (const time of times) {
           if (!time.end) continue;
-          sleepHours += overnightDurationHours(time.start, time.end);
+          sleepHours += durationHours(time.start, time.end, { allowCrossMidnight: true });
         }
       }
     }
@@ -47,20 +48,4 @@ export class GetDailyProductivityUseCase {
 
     return { logDate, sleepHours, activityHours, targetHours, percent };
   }
-}
-
-// A diferencia de las horas de actividad (siempre dentro del mismo día), el
-// sueño típicamente cruza medianoche (ej. 23:00 -> 07:00) -- si end <= start
-// se asume que cruzó a las 24h en vez de descartarlo.
-function overnightDurationHours(start: string, end: string): number {
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  const startMinutes = (startH ?? 0) * 60 + (startM ?? 0);
-  let endMinutes = (endH ?? 0) * 60 + (endM ?? 0);
-  if (endMinutes <= startMinutes) endMinutes += 24 * 60;
-  return Math.round(((endMinutes - startMinutes) / 60) * 100) / 100;
-}
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
 }

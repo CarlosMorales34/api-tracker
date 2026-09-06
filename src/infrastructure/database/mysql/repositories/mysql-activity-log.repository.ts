@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { Pool, RowDataPacket } from 'mysql2/promise';
 import { ActivityLog, ActivityLogDetail } from '../../../../domain/entities/activity-log.entity';
-import { ActivityLogRepository, ActivityLogTime } from '../../../../domain/repositories/activity-log.repository';
+import { ActivityLogRepository, ActivityLogTime, ManualActivityTimeEntry } from '../../../../domain/repositories/activity-log.repository';
+import { durationHours } from '../../../../shared/utils/analytics-calculations';
 
 interface ActivityLogRow extends RowDataPacket {
   id: string;
@@ -33,20 +34,39 @@ interface ActivityLogIdRow extends RowDataPacket {
   id: string;
 }
 
-// "HH:MM:SS" o "HH:MM" (MySQL TIME) -> horas decimales. No maneja cruce de
-// medianoche (a diferencia de las rutinas "Dormir") porque una actividad
-// siempre se registra dentro del mismo día -- si end <= start se descarta.
-function durationHours(start: string, end: string): number {
-  const [startH, startM] = start.split(':').map(Number);
-  const [endH, endM] = end.split(':').map(Number);
-  const startMinutes = (startH ?? 0) * 60 + (startM ?? 0);
-  const endMinutes = (endH ?? 0) * 60 + (endM ?? 0);
-  if (endMinutes <= startMinutes) return 0;
-  return Math.round(((endMinutes - startMinutes) / 60) * 100) / 100;
+interface ManualActivityTimeRow extends RowDataPacket {
+  activity_id: string;
+  activity_name: string;
+  category_id: string;
+  log_date: string;
+  start_time: string;
+  end_time: string;
 }
 
 export class MysqlActivityLogRepository implements ActivityLogRepository {
   constructor(private readonly pool: Pool) {}
+
+  async findManualTimesByUserAndDateRange(userId: string, from: string, to: string): Promise<ManualActivityTimeEntry[]> {
+    const [rows] = await this.pool.query<ManualActivityTimeRow[]>(
+      `SELECT a.id AS activity_id, a.name AS activity_name, ac.id AS category_id,
+              al.log_date AS log_date, alt.start_time AS start_time, alt.end_time AS end_time
+       FROM activity_log_times alt
+       INNER JOIN activity_logs al ON al.id = alt.activity_log_id
+       INNER JOIN activities a ON a.id = al.activity_id
+       INNER JOIN activity_categories ac ON ac.id = a.category_id
+       WHERE ac.user_id = ? AND al.log_date BETWEEN ? AND ? AND alt.source = 'manual'
+       ORDER BY al.log_date ASC, alt.sort_order ASC`,
+      [userId, from, to],
+    );
+    return rows.map((row) => ({
+      activityId: row.activity_id,
+      activityName: row.activity_name,
+      categoryId: row.category_id,
+      logDate: row.log_date,
+      startTime: row.start_time.slice(0, 5),
+      endTime: row.end_time.slice(0, 5),
+    }));
+  }
 
   async findByUserAndDateRange(userId: string, from: string, to: string): Promise<ActivityLog[]> {
     const [rows] = await this.pool.query<ActivityLogRow[]>(
@@ -156,7 +176,7 @@ export class MysqlActivityLogRepository implements ActivityLogRepository {
     const excludeSet = new Set(excludeRoutineIds);
     const total = rows.reduce((sum, row) => {
       if (row.source_routine_id && excludeSet.has(row.source_routine_id)) return sum;
-      return sum + durationHours(String(row.start_time), String(row.end_time));
+      return sum + durationHours(String(row.start_time), String(row.end_time), { allowCrossMidnight: true });
     }, 0);
     return Math.round(total * 100) / 100;
   }
@@ -234,8 +254,12 @@ export class MysqlActivityLogRepository implements ActivityLogRepository {
     }
 
     const totalHours =
-      Math.round(rows.reduce((sum, row) => sum + durationHours(String(row.start_time), String(row.end_time)), 0) * 100) /
-      100;
+      Math.round(
+        rows.reduce(
+          (sum, row) => sum + durationHours(String(row.start_time), String(row.end_time), { allowCrossMidnight: true }),
+          0,
+        ) * 100,
+      ) / 100;
 
     await this.pool.query('UPDATE activity_logs SET hours = ? WHERE id = ?', [totalHours, logId]);
   }

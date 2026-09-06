@@ -33,6 +33,9 @@ export class CreateFixedRoutineUseCase {
       type: dto.type,
       linkedActivityId: dto.linkedActivityId ?? null,
       isSleep: dto.isSleep ?? false,
+      weekdays: dto.weekdays ?? null,
+      startDate: dto.startDate ?? null,
+      endDate: dto.endDate ?? null,
       sortOrder,
     });
 

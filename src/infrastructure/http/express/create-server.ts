@@ -14,6 +14,7 @@ import { MetricController } from '../../../presentation/controllers/metric.contr
 import { MetricEntryController } from '../../../presentation/controllers/metric-entry.controller';
 import { ActivityCategoryController } from '../../../presentation/controllers/activity-category.controller';
 import { ActivityController } from '../../../presentation/controllers/activity.controller';
+import { ActivitySuggestionController } from '../../../presentation/controllers/activity-suggestion.controller';
 import { FixedRoutineController } from '../../../presentation/controllers/fixed-routine.controller';
 import { ActivityLogController } from '../../../presentation/controllers/activity-log.controller';
 import { FinanceController } from '../../../presentation/controllers/finance.controller';
@@ -24,6 +25,7 @@ import { WorkoutController } from '../../../presentation/controllers/workout.con
 import { WorkoutRoutineController } from '../../../presentation/controllers/workout-routine.controller';
 import { WeeklyLogController } from '../../../presentation/controllers/weekly-log.controller';
 import { HomeController } from '../../../presentation/controllers/home.controller';
+import { AnalyticsController } from '../../../presentation/controllers/analytics.controller';
 import { errorHandler } from '../../../presentation/middlewares/error-handler.middleware';
 import { authenticate } from '../../../presentation/middlewares/authenticate.middleware';
 import { globalRateLimiter } from '../../../presentation/middlewares/rate-limiters.middleware';
@@ -39,6 +41,9 @@ import { MysqlActivityRepository } from '../../database/mysql/repositories/mysql
 import { MysqlFixedRoutineRepository } from '../../database/mysql/repositories/mysql-fixed-routine.repository';
 import { MysqlRoutineLogRepository } from '../../database/mysql/repositories/mysql-routine-log.repository';
 import { MysqlActivityLogRepository } from '../../database/mysql/repositories/mysql-activity-log.repository';
+import { MysqlActivitySuggestionRepository } from '../../database/mysql/repositories/mysql-activity-suggestion.repository';
+import { MysqlSuggestionFeedbackRepository } from '../../database/mysql/repositories/mysql-suggestion-feedback.repository';
+import { MysqlUserSuggestionSettingsRepository } from '../../database/mysql/repositories/mysql-user-suggestion-settings.repository';
 import { MysqlMoneyEntryRepository } from '../../database/mysql/repositories/mysql-money-entry.repository';
 import { MysqlFinanceSettingsRepository } from '../../database/mysql/repositories/mysql-finance-settings.repository';
 import { MysqlFinanceDebtPaymentRepository } from '../../database/mysql/repositories/mysql-finance-debt-payment.repository';
@@ -56,6 +61,7 @@ import { MysqlDailyFeedbackRepository } from '../../database/mysql/repositories/
 import { MysqlProductivitySettingsRepository } from '../../database/mysql/repositories/mysql-productivity-settings.repository';
 import { MysqlWorkoutRepository } from '../../database/mysql/repositories/mysql-workout.repository';
 import { MysqlWorkoutRoutineRepository } from '../../database/mysql/repositories/mysql-workout-routine.repository';
+import { MysqlPersonalAnalyticsRepository } from '../../database/mysql/repositories/mysql-personal-analytics.repository';
 import { CreateMetricUseCase } from '../../../application/use-cases/metric/create-metric.use-case';
 import { ListMetricsUseCase } from '../../../application/use-cases/metric/list-metrics.use-case';
 import { LogMetricEntryUseCase } from '../../../application/use-cases/metric-entry/log-metric-entry.use-case';
@@ -115,6 +121,7 @@ import { GetWeeklyLogYearUseCase } from '../../../application/use-cases/weekly-l
 import { GetWeeklyLogWeekUseCase } from '../../../application/use-cases/weekly-log/get-weekly-log-week.use-case';
 import { GetWeeklyTrendUseCase } from '../../../application/use-cases/weekly-log/get-weekly-trend.use-case';
 import { GetHomeSummaryUseCase } from '../../../application/use-cases/home/get-home-summary.use-case';
+import { GetPersonalAnalyticsSummaryUseCase } from '../../../application/use-cases/analytics/get-personal-analytics-summary.use-case';
 import { CreateWorkoutUseCase } from '../../../application/use-cases/workout/create-workout.use-case';
 import { UpdateWorkoutUseCase } from '../../../application/use-cases/workout/update-workout.use-case';
 import { CreateWorkoutRoutineUseCase } from '../../../application/use-cases/workout-routine/create-workout-routine.use-case';
@@ -138,6 +145,15 @@ import { ListBodyMeasurementsUseCase } from '../../../application/use-cases/body
 import { GetBodyProgressSummaryUseCase } from '../../../application/use-cases/body-progress/get-body-progress-summary.use-case';
 import { SetBodyGoalUseCase } from '../../../application/use-cases/body-progress/set-body-goal.use-case';
 import { GetBodyGoalHistoryUseCase } from '../../../application/use-cases/body-progress/get-body-goal-history.use-case';
+import { DetectActivityPatternsUseCase } from '../../../application/use-cases/activity-suggestion/detect-activity-patterns.use-case';
+import { DetectRoutinePatternsUseCase } from '../../../application/use-cases/activity-suggestion/detect-routine-patterns.use-case';
+import { GenerateSuggestionsUseCase } from '../../../application/use-cases/activity-suggestion/generate-suggestions.use-case';
+import { ListSuggestionsUseCase } from '../../../application/use-cases/activity-suggestion/list-suggestions.use-case';
+import { AcceptSuggestionUseCase } from '../../../application/use-cases/activity-suggestion/accept-suggestion.use-case';
+import { DismissSuggestionUseCase } from '../../../application/use-cases/activity-suggestion/dismiss-suggestion.use-case';
+import { ClearSuggestionHistoryUseCase } from '../../../application/use-cases/activity-suggestion/clear-suggestion-history.use-case';
+import { GetSuggestionSettingsUseCase } from '../../../application/use-cases/activity-suggestion/get-suggestion-settings.use-case';
+import { UpdateSuggestionSettingsUseCase } from '../../../application/use-cases/activity-suggestion/update-suggestion-settings.use-case';
 import { LoginUserUseCase } from '../../../application/use-cases/auth/login-user.use-case';
 import { LoginWithGoogleUseCase } from '../../../application/use-cases/auth/login-with-google.use-case';
 import { RefreshAccessTokenUseCase } from '../../../application/use-cases/auth/refresh-access-token.use-case';
@@ -180,6 +196,10 @@ export function createServer(pool: Pool): Express {
   const userModuleSettingsRepository = new MysqlUserModuleSettingsRepository(pool);
   const bodyMeasurementRepository = new MysqlBodyMeasurementRepository(pool);
   const bodyGoalRepository = new MysqlBodyGoalRepository(pool);
+  const personalAnalyticsRepository = new MysqlPersonalAnalyticsRepository(pool);
+  const activitySuggestionRepository = new MysqlActivitySuggestionRepository(pool);
+  const suggestionFeedbackRepository = new MysqlSuggestionFeedbackRepository(pool);
+  const userSuggestionSettingsRepository = new MysqlUserSuggestionSettingsRepository(pool);
 
   // --- Security services ---
   const passwordHasher = new BcryptPasswordHasher();
@@ -210,6 +230,7 @@ export function createServer(pool: Pool): Express {
   const getBodyProgressSummaryUseCase = new GetBodyProgressSummaryUseCase(bodyMeasurementRepository, bodyGoalRepository);
   const setBodyGoalUseCase = new SetBodyGoalUseCase(bodyGoalRepository);
   const getBodyGoalHistoryUseCase = new GetBodyGoalHistoryUseCase(bodyGoalRepository);
+  const getPersonalAnalyticsSummaryUseCase = new GetPersonalAnalyticsSummaryUseCase(personalAnalyticsRepository);
 
   const createMetricUseCase = new CreateMetricUseCase(metricRepository);
   const listMetricsUseCase = new ListMetricsUseCase(metricRepository);
@@ -254,6 +275,36 @@ export function createServer(pool: Pool): Express {
     routineLogRepository,
     activityLogRepository,
   );
+
+  // Declarados acá (no junto a los otros use-cases de body-progress) porque
+  // AcceptSuggestionUseCase depende de CreateFixedRoutineUseCase (para
+  // materializar la rutina cuando se acepta una sugerencia create_routine),
+  // que recién queda declarado arriba.
+  const detectActivityPatternsUseCase = new DetectActivityPatternsUseCase(activityLogRepository);
+  const detectRoutinePatternsUseCase = new DetectRoutinePatternsUseCase(routineLogRepository);
+  const generateSuggestionsUseCase = new GenerateSuggestionsUseCase(
+    detectActivityPatternsUseCase,
+    detectRoutinePatternsUseCase,
+    activitySuggestionRepository,
+    suggestionFeedbackRepository,
+    userSuggestionSettingsRepository,
+    fixedRoutineRepository,
+  );
+  const listSuggestionsUseCase = new ListSuggestionsUseCase(activitySuggestionRepository);
+  const acceptSuggestionUseCase = new AcceptSuggestionUseCase(
+    activitySuggestionRepository,
+    suggestionFeedbackRepository,
+    activityRepository,
+    createFixedRoutineUseCase,
+    updateFixedRoutineUseCase,
+  );
+  const dismissSuggestionUseCase = new DismissSuggestionUseCase(activitySuggestionRepository, suggestionFeedbackRepository);
+  const clearSuggestionHistoryUseCase = new ClearSuggestionHistoryUseCase(
+    activitySuggestionRepository,
+    suggestionFeedbackRepository,
+  );
+  const getSuggestionSettingsUseCase = new GetSuggestionSettingsUseCase(userSuggestionSettingsRepository);
+  const updateSuggestionSettingsUseCase = new UpdateSuggestionSettingsUseCase(userSuggestionSettingsRepository);
 
   const listActivityLogsUseCase = new ListActivityLogsUseCase(activityLogRepository);
 
@@ -383,6 +434,15 @@ export function createServer(pool: Pool): Express {
     updateFixedRoutineUseCase,
   );
   const activityLogController = new ActivityLogController(listActivityLogsUseCase);
+  const activitySuggestionController = new ActivitySuggestionController(
+    generateSuggestionsUseCase,
+    listSuggestionsUseCase,
+    acceptSuggestionUseCase,
+    dismissSuggestionUseCase,
+    clearSuggestionHistoryUseCase,
+    getSuggestionSettingsUseCase,
+    updateSuggestionSettingsUseCase,
+  );
   const financeController = new FinanceController(
     getFinanceSettingsUseCase,
     updateFinanceSettingsUseCase,
@@ -432,6 +492,7 @@ export function createServer(pool: Pool): Express {
     deleteAnnualCounterUseCase,
   );
   const homeController = new HomeController(getHomeSummaryUseCase);
+  const analyticsController = new AnalyticsController(getPersonalAnalyticsSummaryUseCase);
   const workoutController = new WorkoutController(
     createWorkoutUseCase,
     updateWorkoutUseCase,
@@ -482,6 +543,7 @@ export function createServer(pool: Pool): Express {
       metricEntryController,
       activityCategoryController,
       activityController,
+      activitySuggestionController,
       fixedRoutineController,
       activityLogController,
       financeController,
@@ -489,6 +551,7 @@ export function createServer(pool: Pool): Express {
       weightController,
       weeklyLogController,
       homeController,
+      analyticsController,
       creditCardController,
       workoutController,
       workoutRoutineController,
