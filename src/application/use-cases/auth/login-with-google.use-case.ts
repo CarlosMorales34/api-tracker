@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { User } from '../../../domain/entities/user.entity';
 import { UserRepository } from '../../../domain/repositories/user.repository';
+import { UserModuleSettingsRepository } from '../../../domain/repositories/user-module-settings.repository';
+import { DEFAULT_USER_MODULE_SETTINGS } from '../../../domain/entities/user-module-settings.entity';
 import { TokenService } from '../../../domain/services/token.service';
 import { UnauthorizedError } from '../../../domain/errors/domain.error';
 
@@ -25,6 +27,7 @@ export class LoginWithGoogleUseCase {
     private readonly userRepository: UserRepository,
     private readonly tokenService: TokenService,
     private readonly googleClientId: string,
+    private readonly userModuleSettingsRepository: UserModuleSettingsRepository,
   ) {
     this.client = new OAuth2Client(googleClientId);
   }
@@ -46,6 +49,9 @@ export class LoginWithGoogleUseCase {
       } else {
         user = User.createFromGoogle({ id: randomUUID(), email, name, googleId, avatarUrl });
         await this.userRepository.save(user);
+        // Google no pasa por el paso de elegir dominios del registro normal
+        // -- arranca con los 3 habilitados, editable después desde Ajustes.
+        await this.userModuleSettingsRepository.upsert(user.id, DEFAULT_USER_MODULE_SETTINGS);
       }
     }
 

@@ -1,8 +1,7 @@
 import { ActivityLogRepository } from '../../../domain/repositories/activity-log.repository';
 import { MoneyEntryRepository } from '../../../domain/repositories/money-entry.repository';
-import { WeightEntryRepository } from '../../../domain/repositories/weight-entry.repository';
-import { WeightSettingsRepository } from '../../../domain/repositories/weight-settings.repository';
-import { DEFAULT_WEIGHT_SETTINGS } from '../../../domain/entities/weight-settings.entity';
+import { BodyMeasurementRepository } from '../../../domain/repositories/body-measurement.repository';
+import { BodyGoalRepository } from '../../../domain/repositories/body-goal.repository';
 import { GetWeeklyLogWeekUseCase, CategoryHoursItem } from '../weekly-log/get-weekly-log-week.use-case';
 import { addDaysUTC, formatDateOnly, getWeekNumberForDate, parseDateOnly, todayDateOnly } from '../../../shared/utils/week';
 
@@ -33,8 +32,8 @@ export class GetHomeSummaryUseCase {
     private readonly activityLogRepository: ActivityLogRepository,
     private readonly getWeeklyLogWeekUseCase: GetWeeklyLogWeekUseCase,
     private readonly moneyEntryRepository: MoneyEntryRepository,
-    private readonly weightEntryRepository: WeightEntryRepository,
-    private readonly weightSettingsRepository: WeightSettingsRepository,
+    private readonly bodyMeasurementRepository: BodyMeasurementRepository,
+    private readonly bodyGoalRepository: BodyGoalRepository,
   ) {}
 
   async execute(userId: string): Promise<HomeSummary> {
@@ -43,21 +42,23 @@ export class GetHomeSummaryUseCase {
     const currentYear = today.getUTCFullYear();
     const currentMonth = today.getUTCMonth() + 1;
 
-    const [streak, weekDetail, incomeThisMonth, expenseThisMonth, weightYear, weightSettings, yearsWithFinance] =
+    const [streak, weekDetail, incomeThisMonth, expenseThisMonth, latestMeasurement, activeGoal, yearsWithFinance] =
       await Promise.all([
         this.computeStreak(userId),
         this.getWeeklyLogWeekUseCase.execute(userId, weekYear, weekNumber),
         this.moneyEntryRepository.sumByUserTypeAndMonth(userId, 'income', currentYear, currentMonth),
         this.moneyEntryRepository.sumByUserTypeAndMonth(userId, 'expense', currentYear, currentMonth),
-        this.weightEntryRepository.findAllByUserAndYear(userId, currentYear),
-        this.weightSettingsRepository.find(userId),
+        this.bodyMeasurementRepository.findLatest(userId),
+        this.bodyGoalRepository.findActive(userId),
         this.moneyEntryRepository.findDistinctYearsWithEntries(userId),
       ]);
 
     const monthlyBalanceHasData = incomeThisMonth > 0 || expenseThisMonth > 0;
 
-    const currentWeightEntry = [...weightYear].reverse().find((entry) => entry.value !== null) ?? null;
-    const goalKg = (weightSettings ?? DEFAULT_WEIGHT_SETTINGS).goalKg;
+    // targetWeightKg puede ser null (metas 'maintain'/'recomp' no siempre
+    // tienen un único número) -- ahí se cae al peso inicial de la meta
+    // como referencia, en vez de mostrar un 0 engañoso.
+    const goalKg = activeGoal?.targetWeightKg ?? activeGoal?.startWeightKg ?? 0;
 
     const annualBalance = await this.computeAnnualBalance(userId, currentYear, yearsWithFinance);
 
@@ -75,9 +76,9 @@ export class GetHomeSummaryUseCase {
         hasData: monthlyBalanceHasData,
       },
       currentWeight: {
-        kg: currentWeightEntry?.value ?? null,
+        kg: latestMeasurement?.weightKg ?? null,
         goalKg,
-        hasData: currentWeightEntry !== null,
+        hasData: latestMeasurement?.weightKg !== null && latestMeasurement?.weightKg !== undefined,
       },
       annualBalance,
     };

@@ -14,6 +14,8 @@ import { HomeController } from '../controllers/home.controller';
 import { CreditCardController } from '../controllers/credit-card.controller';
 import { WorkoutController } from '../controllers/workout.controller';
 import { WorkoutRoutineController } from '../controllers/workout-routine.controller';
+import { UserController } from '../controllers/user.controller';
+import { BodyProgressController } from '../controllers/body-progress.controller';
 import { IdempotencyRepository } from '../../domain/repositories/idempotency.repository';
 import { authRateLimiter } from '../middlewares/rate-limiters.middleware';
 import { authRoutes } from './auth.routes';
@@ -31,9 +33,13 @@ import { homeRoutes } from './home.routes';
 import { creditCardRoutes } from './credit-card.routes';
 import { workoutRoutes } from './workout.routes';
 import { workoutRoutineRoutes } from './workout-routine.routes';
+import { userRoutes } from './user.routes';
+import { bodyGoalRoutes, bodyMeasurementRoutes } from './body-progress.routes';
 
 export interface ApiRoutesDeps {
   authController: AuthController;
+  userController: UserController;
+  bodyProgressController: BodyProgressController;
   metricController: MetricController;
   metricEntryController: MetricEntryController;
   activityCategoryController: ActivityCategoryController;
@@ -56,6 +62,15 @@ export function apiRoutes(deps: ApiRoutesDeps): Router {
   const router = Router();
 
   router.use('/auth', authRateLimiter, authRoutes(deps.authController, deps.idempotencyRepository));
+  router.use('/users', userRoutes(deps.userController, deps.authenticateMiddleware));
+  router.use(
+    '/body-measurements',
+    bodyMeasurementRoutes(deps.bodyProgressController, deps.authenticateMiddleware, deps.idempotencyRepository),
+  );
+  router.use(
+    '/body-goals',
+    bodyGoalRoutes(deps.bodyProgressController, deps.authenticateMiddleware, deps.idempotencyRepository),
+  );
   router.use('/metrics', metricRoutes(deps.metricController, deps.authenticateMiddleware, deps.idempotencyRepository));
   router.use(
     '/metric-entries',

@@ -8,6 +8,8 @@ import timeout from 'connect-timeout';
 import swaggerUi from 'swagger-ui-express';
 import { apiRoutes } from '../../../presentation/routes';
 import { AuthController } from '../../../presentation/controllers/auth.controller';
+import { UserController } from '../../../presentation/controllers/user.controller';
+import { BodyProgressController } from '../../../presentation/controllers/body-progress.controller';
 import { MetricController } from '../../../presentation/controllers/metric.controller';
 import { MetricEntryController } from '../../../presentation/controllers/metric-entry.controller';
 import { ActivityCategoryController } from '../../../presentation/controllers/activity-category.controller';
@@ -28,6 +30,9 @@ import { globalRateLimiter } from '../../../presentation/middlewares/rate-limite
 import { MysqlMetricRepository } from '../../database/mysql/repositories/mysql-metric.repository';
 import { MysqlMetricEntryRepository } from '../../database/mysql/repositories/mysql-metric-entry.repository';
 import { MysqlUserRepository } from '../../database/mysql/repositories/mysql-user.repository';
+import { MysqlUserModuleSettingsRepository } from '../../database/mysql/repositories/mysql-user-module-settings.repository';
+import { MysqlBodyMeasurementRepository } from '../../database/mysql/repositories/mysql-body-measurement.repository';
+import { MysqlBodyGoalRepository } from '../../database/mysql/repositories/mysql-body-goal.repository';
 import { MysqlIdempotencyRepository } from '../../database/mysql/repositories/mysql-idempotency.repository';
 import { MysqlActivityCategoryRepository } from '../../database/mysql/repositories/mysql-activity-category.repository';
 import { MysqlActivityRepository } from '../../database/mysql/repositories/mysql-activity.repository';
@@ -124,6 +129,15 @@ import { ListAnnualCountersUseCase } from '../../../application/use-cases/weekly
 import { CreateAnnualCounterUseCase } from '../../../application/use-cases/weekly-log/create-annual-counter.use-case';
 import { DeleteAnnualCounterUseCase } from '../../../application/use-cases/weekly-log/delete-annual-counter.use-case';
 import { RegisterUserUseCase } from '../../../application/use-cases/auth/register-user.use-case';
+import { GetUserModuleSettingsUseCase } from '../../../application/use-cases/user/get-user-module-settings.use-case';
+import { UpdateUserModuleSettingsUseCase } from '../../../application/use-cases/user/update-user-module-settings.use-case';
+import { CreateBodyMeasurementUseCase } from '../../../application/use-cases/body-progress/create-body-measurement.use-case';
+import { UpdateBodyMeasurementUseCase } from '../../../application/use-cases/body-progress/update-body-measurement.use-case';
+import { DeleteBodyMeasurementUseCase } from '../../../application/use-cases/body-progress/delete-body-measurement.use-case';
+import { ListBodyMeasurementsUseCase } from '../../../application/use-cases/body-progress/list-body-measurements.use-case';
+import { GetBodyProgressSummaryUseCase } from '../../../application/use-cases/body-progress/get-body-progress-summary.use-case';
+import { SetBodyGoalUseCase } from '../../../application/use-cases/body-progress/set-body-goal.use-case';
+import { GetBodyGoalHistoryUseCase } from '../../../application/use-cases/body-progress/get-body-goal-history.use-case';
 import { LoginUserUseCase } from '../../../application/use-cases/auth/login-user.use-case';
 import { LoginWithGoogleUseCase } from '../../../application/use-cases/auth/login-with-google.use-case';
 import { RefreshAccessTokenUseCase } from '../../../application/use-cases/auth/refresh-access-token.use-case';
@@ -163,16 +177,39 @@ export function createServer(pool: Pool): Express {
   const productivitySettingsRepository = new MysqlProductivitySettingsRepository(pool);
   const workoutRepository = new MysqlWorkoutRepository(pool);
   const workoutRoutineRepository = new MysqlWorkoutRoutineRepository(pool);
+  const userModuleSettingsRepository = new MysqlUserModuleSettingsRepository(pool);
+  const bodyMeasurementRepository = new MysqlBodyMeasurementRepository(pool);
+  const bodyGoalRepository = new MysqlBodyGoalRepository(pool);
 
   // --- Security services ---
   const passwordHasher = new BcryptPasswordHasher();
   const tokenService = new JwtTokenService(env.jwt.secret, env.jwt.expiresIn, env.jwt.refreshExpiresIn);
 
   // --- Use cases ---
-  const registerUserUseCase = new RegisterUserUseCase(userRepository, passwordHasher, tokenService);
+  const registerUserUseCase = new RegisterUserUseCase(
+    userRepository,
+    passwordHasher,
+    tokenService,
+    userModuleSettingsRepository,
+  );
   const loginUserUseCase = new LoginUserUseCase(userRepository, passwordHasher, tokenService);
-  const loginWithGoogleUseCase = new LoginWithGoogleUseCase(userRepository, tokenService, env.google.clientId);
+  const loginWithGoogleUseCase = new LoginWithGoogleUseCase(
+    userRepository,
+    tokenService,
+    env.google.clientId,
+    userModuleSettingsRepository,
+  );
   const refreshAccessTokenUseCase = new RefreshAccessTokenUseCase(tokenService);
+  const getUserModuleSettingsUseCase = new GetUserModuleSettingsUseCase(userModuleSettingsRepository);
+  const updateUserModuleSettingsUseCase = new UpdateUserModuleSettingsUseCase(userModuleSettingsRepository);
+
+  const createBodyMeasurementUseCase = new CreateBodyMeasurementUseCase(bodyMeasurementRepository);
+  const updateBodyMeasurementUseCase = new UpdateBodyMeasurementUseCase(bodyMeasurementRepository);
+  const deleteBodyMeasurementUseCase = new DeleteBodyMeasurementUseCase(bodyMeasurementRepository);
+  const listBodyMeasurementsUseCase = new ListBodyMeasurementsUseCase(bodyMeasurementRepository);
+  const getBodyProgressSummaryUseCase = new GetBodyProgressSummaryUseCase(bodyMeasurementRepository, bodyGoalRepository);
+  const setBodyGoalUseCase = new SetBodyGoalUseCase(bodyGoalRepository);
+  const getBodyGoalHistoryUseCase = new GetBodyGoalHistoryUseCase(bodyGoalRepository);
 
   const createMetricUseCase = new CreateMetricUseCase(metricRepository);
   const listMetricsUseCase = new ListMetricsUseCase(metricRepository);
@@ -287,8 +324,8 @@ export function createServer(pool: Pool): Express {
     activityLogRepository,
     getWeeklyLogWeekUseCase,
     moneyEntryRepository,
-    weightEntryRepository,
-    weightSettingsRepository,
+    bodyMeasurementRepository,
+    bodyGoalRepository,
   );
 
   const createWorkoutUseCase = new CreateWorkoutUseCase(workoutRepository);
@@ -307,6 +344,16 @@ export function createServer(pool: Pool): Express {
     loginUserUseCase,
     loginWithGoogleUseCase,
     refreshAccessTokenUseCase,
+  );
+  const userController = new UserController(getUserModuleSettingsUseCase, updateUserModuleSettingsUseCase);
+  const bodyProgressController = new BodyProgressController(
+    createBodyMeasurementUseCase,
+    updateBodyMeasurementUseCase,
+    deleteBodyMeasurementUseCase,
+    listBodyMeasurementsUseCase,
+    getBodyProgressSummaryUseCase,
+    setBodyGoalUseCase,
+    getBodyGoalHistoryUseCase,
   );
   const metricController = new MetricController(createMetricUseCase, listMetricsUseCase);
   const metricEntryController = new MetricEntryController(logMetricEntryUseCase, getMetricHistoryUseCase);
@@ -429,6 +476,8 @@ export function createServer(pool: Pool): Express {
     '/api',
     apiRoutes({
       authController,
+      userController,
+      bodyProgressController,
       metricController,
       metricEntryController,
       activityCategoryController,
