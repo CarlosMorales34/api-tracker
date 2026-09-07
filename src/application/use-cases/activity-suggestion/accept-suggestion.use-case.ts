@@ -4,6 +4,7 @@ import { NotFoundError } from '../../../domain/errors/domain.error';
 import { ActivityRepository } from '../../../domain/repositories/activity.repository';
 import { ActivitySuggestionRepository } from '../../../domain/repositories/activity-suggestion.repository';
 import { SuggestionFeedbackRepository } from '../../../domain/repositories/suggestion-feedback.repository';
+import { parseDateOnly } from '../../../shared/utils/week';
 import { CreateFixedRoutineUseCase } from '../fixed-routine/create-fixed-routine.use-case';
 import { PutRoutineLogUseCase } from '../fixed-routine/put-routine-log.use-case';
 import { UpdateFixedRoutineUseCase } from '../fixed-routine/update-fixed-routine.use-case';
@@ -147,6 +148,8 @@ export class AcceptSuggestionUseCase {
     const start = asTimeOrNull(overrides.suggestedStartTime, snapshot.suggestedStartTime as string | null);
     const end = asTimeOrNull(overrides.suggestedEndTime, snapshot.suggestedEndTime as string | null);
     if (!logDate || !start || !end) return;
+    const suggestedDays = snapshot.suggestedDays as number[] | null;
+    if (suggestedDays && !suggestedDays.includes(parseDateOnly(logDate).getUTCDay())) return;
     await this.putRoutineLogUseCase.execute(userId, routineId, logDate, [{ start, end }]);
   }
 }
