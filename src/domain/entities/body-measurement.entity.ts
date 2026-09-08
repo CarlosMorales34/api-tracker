@@ -1,7 +1,9 @@
 export interface BodyMeasurementProps {
   id: string;
   userId: string;
-  measuredAt: Date;
+  // Literal local "YYYY-MM-DDTHH:mm:ss" -- nunca un Date, ver
+  // shared/utils/measured-at.ts.
+  measuredAt: string;
   weightKg: number | null;
   bodyFatPercentage: number | null;
   waistCm: number | null;
@@ -29,7 +31,7 @@ export class BodyMeasurement {
   static create(props: {
     id: string;
     userId: string;
-    measuredAt: Date;
+    measuredAt: string;
     weightKg?: number | null;
     bodyFatPercentage?: number | null;
     waistCm?: number | null;
@@ -74,7 +76,7 @@ export class BodyMeasurement {
     return this.props.userId;
   }
 
-  get measuredAt(): Date {
+  get measuredAt(): string {
     return this.props.measuredAt;
   }
 
@@ -103,7 +105,7 @@ export class BodyMeasurement {
   }
 
   applyUpdate(changes: {
-    measuredAt?: Date;
+    measuredAt?: string;
     weightKg?: number | null;
     bodyFatPercentage?: number | null;
     waistCm?: number | null;
@@ -123,7 +125,7 @@ export class BodyMeasurement {
   toJSON() {
     return {
       id: this.props.id,
-      measuredAt: this.props.measuredAt.toISOString(),
+      measuredAt: this.props.measuredAt,
       weightKg: this.props.weightKg,
       bodyFatPercentage: this.props.bodyFatPercentage,
       waistCm: this.props.waistCm,

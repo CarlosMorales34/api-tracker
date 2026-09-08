@@ -1,6 +1,7 @@
 import { BodyMeasurement } from '../../../domain/entities/body-measurement.entity';
 import { BodyMeasurementRepository } from '../../../domain/repositories/body-measurement.repository';
 import { DomainError } from '../../../domain/errors/domain.error';
+import { normalizeMeasuredAt } from '../../../shared/utils/measured-at';
 import { CreateBodyMeasurementDto } from '../../dtos/body-measurement.dto';
 
 export class CreateBodyMeasurementUseCase {
@@ -13,7 +14,7 @@ export class CreateBodyMeasurementUseCase {
     }
 
     return this.bodyMeasurementRepository.create(userId, {
-      measuredAt: new Date(dto.measuredAt),
+      measuredAt: normalizeMeasuredAt(dto.measuredAt),
       weightKg: dto.weightKg ?? null,
       bodyFatPercentage: dto.bodyFatPercentage ?? null,
       waistCm: dto.waistCm ?? null,

@@ -1,6 +1,7 @@
 import { BodyMeasurement } from '../../../domain/entities/body-measurement.entity';
 import { BodyMeasurementRepository } from '../../../domain/repositories/body-measurement.repository';
 import { NotFoundError } from '../../../domain/errors/domain.error';
+import { normalizeMeasuredAt } from '../../../shared/utils/measured-at';
 import { UpdateBodyMeasurementDto } from '../../dtos/body-measurement.dto';
 
 export class UpdateBodyMeasurementUseCase {
@@ -8,7 +9,7 @@ export class UpdateBodyMeasurementUseCase {
 
   async execute(userId: string, id: string, dto: UpdateBodyMeasurementDto): Promise<BodyMeasurement> {
     const updated = await this.bodyMeasurementRepository.update(userId, id, {
-      measuredAt: dto.measuredAt !== undefined ? new Date(dto.measuredAt) : undefined,
+      measuredAt: dto.measuredAt !== undefined ? normalizeMeasuredAt(dto.measuredAt) : undefined,
       weightKg: dto.weightKg,
       bodyFatPercentage: dto.bodyFatPercentage,
       waistCm: dto.waistCm,

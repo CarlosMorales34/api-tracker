@@ -7,8 +7,16 @@ import { BodyGoalType } from '../../domain/entities/body-goal.entity';
 // sin meta, período sin datos) en vez de asumir un valor.
 
 export interface WeightPoint {
-  measuredAt: Date;
+  // Literal local "YYYY-MM-DDTHH:mm:ss" (ver shared/utils/measured-at.ts) --
+  // se compara vía new Date(...).getTime() abajo, que para este formato es
+  // solo aritmética relativa entre puntos (todos parseados igual), no
+  // depende de a qué zona horaria resuelva "local" en el proceso.
+  measuredAt: string;
   weightKg: number;
+}
+
+function time(measuredAt: string): number {
+  return new Date(measuredAt).getTime();
 }
 
 export type Trend = 'up' | 'down' | 'stable';
@@ -26,7 +34,7 @@ export function round2(value: number): number {
 // Última medición con peso, la serie no viene garantizada ordenada.
 export function currentWeight(points: WeightPoint[]): number | null {
   if (points.length === 0) return null;
-  return [...points].sort((a, b) => b.measuredAt.getTime() - a.measuredAt.getTime())[0]!.weightKg;
+  return [...points].sort((a, b) => time(b.measuredAt) - time(a.measuredAt))[0]!.weightKg;
 }
 
 // Cambio entre el valor actual y el valor vigente al inicio del período
@@ -36,8 +44,8 @@ export function deltaForPeriod(points: WeightPoint[], periodStart: Date): number
   const current = currentWeight(points);
   if (current === null) return null;
   const before = [...points]
-    .filter((p) => p.measuredAt.getTime() <= periodStart.getTime())
-    .sort((a, b) => b.measuredAt.getTime() - a.measuredAt.getTime())[0];
+    .filter((p) => time(p.measuredAt) <= periodStart.getTime())
+    .sort((a, b) => time(b.measuredAt) - time(a.measuredAt))[0];
   if (!before) return null;
   return round2(current - before.weightKg);
 }
@@ -74,14 +82,12 @@ export function percentProgress(
 // diario (retención de líquidos, etc.) sin esconder la tendencia real.
 // Requiere >=1 punto en la ventana; si una fecha no tiene mediciones previas
 // en los 7 días, no se incluye en el resultado.
-export function movingAverage7d(points: WeightPoint[]): { date: Date; average: number }[] {
-  const sorted = [...points].sort((a, b) => a.measuredAt.getTime() - b.measuredAt.getTime());
+export function movingAverage7d(points: WeightPoint[]): { date: string; average: number }[] {
+  const sorted = [...points].sort((a, b) => time(a.measuredAt) - time(b.measuredAt));
   const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
   return sorted.map((point) => {
-    const windowStart = point.measuredAt.getTime() - WINDOW_MS;
-    const inWindow = sorted.filter(
-      (p) => p.measuredAt.getTime() > windowStart && p.measuredAt.getTime() <= point.measuredAt.getTime(),
-    );
+    const windowStart = time(point.measuredAt) - WINDOW_MS;
+    const inWindow = sorted.filter((p) => time(p.measuredAt) > windowStart && time(p.measuredAt) <= time(point.measuredAt));
     const sum = inWindow.reduce((total, p) => total + p.weightKg, 0);
     return { date: point.measuredAt, average: round2(sum / inWindow.length) };
   });
@@ -92,10 +98,10 @@ export function movingAverage7d(points: WeightPoint[]): { date: Date; average: n
 // día (evita dividir entre ~0 y devolver un número absurdo).
 export function weeklyPace(points: WeightPoint[]): number | null {
   if (points.length < 2) return null;
-  const sorted = [...points].sort((a, b) => a.measuredAt.getTime() - b.measuredAt.getTime());
+  const sorted = [...points].sort((a, b) => time(a.measuredAt) - time(b.measuredAt));
   const first = sorted[0]!;
   const last = sorted[sorted.length - 1]!;
-  const daysSpan = (last.measuredAt.getTime() - first.measuredAt.getTime()) / (24 * 60 * 60 * 1000);
+  const daysSpan = (time(last.measuredAt) - time(first.measuredAt)) / (24 * 60 * 60 * 1000);
   if (daysSpan < 1) return null;
   const totalChange = last.weightKg - first.weightKg;
   return round2((totalChange / daysSpan) * 7);

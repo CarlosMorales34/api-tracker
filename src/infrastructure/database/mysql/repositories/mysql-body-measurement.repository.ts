@@ -10,7 +10,11 @@ import {
 interface BodyMeasurementRow extends RowDataPacket {
   id: string;
   user_id: string;
-  measured_at: Date;
+  // String literal vía DATE_FORMAT en SELECT_COLUMNS (no un Date) -- así
+  // measured_at nunca pasa por la conversión de zona horaria del driver
+  // (mysql2 pool timezone: 'local'), que dependía de que el timezone del
+  // servidor coincidiera con el del usuario. Ver shared/utils/measured-at.ts.
+  measured_at: string;
   weight_kg: number | null;
   body_fat_percentage: number | null;
   waist_cm: number | null;
@@ -20,7 +24,15 @@ interface BodyMeasurementRow extends RowDataPacket {
 }
 
 const SELECT_COLUMNS =
-  'id, user_id, measured_at, weight_kg, body_fat_percentage, waist_cm, chest_cm, hips_cm, notes';
+  "id, user_id, DATE_FORMAT(measured_at, '%Y-%m-%dT%H:%i:%s') AS measured_at, weight_kg, body_fat_percentage, waist_cm, chest_cm, hips_cm, notes";
+
+// input.measuredAt es un literal local "YYYY-MM-DDTHH:mm:ss" (ver
+// BodyMeasurementFields) -- se pasa como STRING al driver, nunca como Date,
+// para que mysql2 lo inserte tal cual sin aplicarle su propia conversión de
+// zona horaria (que solo ocurre para valores Date, no para strings).
+function toSqlLiteral(measuredAt: string): string {
+  return measuredAt.replace('T', ' ');
+}
 
 export class MysqlBodyMeasurementRepository implements BodyMeasurementRepository {
   constructor(private readonly pool: Pool) {}
@@ -34,7 +46,7 @@ export class MysqlBodyMeasurementRepository implements BodyMeasurementRepository
       [
         id,
         userId,
-        input.measuredAt,
+        toSqlLiteral(input.measuredAt),
         input.weightKg,
         input.bodyFatPercentage,
         input.waistCm,
@@ -67,7 +79,7 @@ export class MysqlBodyMeasurementRepository implements BodyMeasurementRepository
        SET measured_at = ?, weight_kg = ?, body_fat_percentage = ?, waist_cm = ?, chest_cm = ?, hips_cm = ?, notes = ?
        WHERE id = ? AND user_id = ?`,
       [
-        merged.measuredAt,
+        toSqlLiteral(merged.measuredAt),
         merged.weightKg,
         merged.bodyFatPercentage,
         merged.waistCm,
@@ -126,7 +138,7 @@ export class MysqlBodyMeasurementRepository implements BodyMeasurementRepository
     return BodyMeasurement.fromPersistence({
       id: row.id,
       userId: row.user_id,
-      measuredAt: new Date(row.measured_at),
+      measuredAt: row.measured_at,
       weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
       bodyFatPercentage: row.body_fat_percentage === null ? null : Number(row.body_fat_percentage),
       waistCm: row.waist_cm === null ? null : Number(row.waist_cm),

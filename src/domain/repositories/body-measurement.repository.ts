@@ -1,7 +1,9 @@
 import { BodyMeasurement } from '../entities/body-measurement.entity';
 
 export interface BodyMeasurementFields {
-  measuredAt: Date;
+  // Literal local "YYYY-MM-DDTHH:mm:ss", nunca un Date -- ver
+  // shared/utils/measured-at.ts para el porqué.
+  measuredAt: string;
   weightKg: number | null;
   bodyFatPercentage: number | null;
   waistCm: number | null;

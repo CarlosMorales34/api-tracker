@@ -94,7 +94,7 @@ export class GetBodyProgressSummaryUseCase {
           }
         : null,
       latestMeasurement: latest
-        ? { id: latest.id, measuredAt: latest.measuredAt.toISOString(), weightKg: latest.weightKg }
+        ? { id: latest.id, measuredAt: latest.measuredAt, weightKg: latest.weightKg }
         : null,
     };
   }
