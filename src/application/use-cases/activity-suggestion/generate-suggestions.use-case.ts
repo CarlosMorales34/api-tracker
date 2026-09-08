@@ -13,7 +13,7 @@ import {
   meetsShowThreshold,
   parseHHMMToMinutes,
 } from '../../../shared/utils/activity-pattern-calculations';
-import { todayDateOnly } from '../../../shared/utils/week';
+import { parseDateOnly, todayDateOnly } from '../../../shared/utils/week';
 import { DetectActivityPatternsUseCase } from './detect-activity-patterns.use-case';
 import { DetectRoutinePatternsUseCase } from './detect-routine-patterns.use-case';
 
@@ -94,11 +94,13 @@ function routinePatternCanUpdate(matchRatio: number): boolean {
 // el horario al capturar el día, no proponer crear otra rutina).
 //
 // Rutinas fijas ya existentes (Dormir, Trabajo...) generan 'update_routine'
-// cuando el patrón detectado en su historial (routine_log_times) no
-// coincide con los `weekdays` que la rutina tiene guardados hoy -- ya sea
-// porque nunca se configuraron (null = "todos los días", el default
-// histórico) o porque cambiaron. Nunca se genera si ya coinciden: no tiene
-// sentido "sugerir" lo que la rutina ya confirma.
+// mientras haya datos suficientes -- a diferencia de las sugerencias de
+// actividad, estas se refrescan a diario (no una sola vez ni solo mientras
+// `routine.weekdays` no coincida): el usuario quiere seguir viendo/
+// confirmando el patrón detectado día a día, incluso después de aceptar una
+// sugerencia anterior, para que el horario sugerido se siga acercando a sus
+// correcciones recientes (ver blendMinutesWithCorrections). El único freno
+// es no crear más de una por rutina el mismo día (`alreadyToday` abajo).
 //
 // Alcance de esta entrega: suggest_category/suggest_activity_name/
 // suggest_duration/suggest_next_occurrence quedan definidos en el modelo
@@ -125,6 +127,7 @@ export class GenerateSuggestionsUseCase {
     ]);
     const created: ActivitySuggestion[] = [];
     const sinceDate = new Date(Date.now() - SUGGESTION_THRESHOLDS.RECENCY_DECAY_DAYS * 86400000);
+    const todayStart = parseDateOnly(todayDateOnly());
 
     const routineById = new Map(existingRoutines.map((routine) => [routine.id, routine]));
 
@@ -132,12 +135,7 @@ export class GenerateSuggestionsUseCase {
       const routine = routineById.get(pattern.routineId);
       if (!routine) continue; // la rutina se borró entre el detect y el generate -- no sugerir sobre algo que ya no existe
 
-      // Ya coincide con lo que la rutina tiene guardado -- nada nuevo que sugerir.
       const currentWeekdays = routine.weekdays ? [...routine.weekdays].sort((a, b) => a - b) : null;
-      const patternWeekdaysSorted = [...pattern.weekdays].sort((a, b) => a - b);
-      if (currentWeekdays !== null && JSON.stringify(currentWeekdays) === JSON.stringify(patternWeekdaysSorted)) {
-        continue;
-      }
 
       const target = { suggestionType: 'update_routine' as const, activityId: null, routineId: pattern.routineId };
 
@@ -150,6 +148,17 @@ export class GenerateSuggestionsUseCase {
         continue;
       }
       if (alreadyPending) continue;
+
+      // No más de una por rutina el mismo día, sin importar en qué haya
+      // quedado (aceptada, descartada, expirada) -- evita re-sugerir en
+      // cada carga de página el mismo día, pero sí permite una nueva mañana.
+      const alreadyToday = await this.activitySuggestionRepository.countRecentByStatusForTarget(
+        userId,
+        target,
+        ['pending', 'accepted', 'accepted_with_changes', 'dismissed', 'expired'],
+        todayStart,
+      );
+      if (alreadyToday > 0) continue;
 
       const [recentDismissals, recentAcceptances] = await Promise.all([
         this.activitySuggestionRepository.countRecentByStatusForTarget(userId, target, ['dismissed'], sinceDate),
