@@ -20,6 +20,7 @@ interface WorkoutRoutineExerciseRow extends RowDataPacket {
   target_sets: number;
   target_reps: number;
   suggested_weight: number | null;
+  is_bodyweight: number;
   sort_order: number;
 }
 
@@ -94,9 +95,18 @@ export class MysqlWorkoutRoutineRepository implements WorkoutRoutineRepository {
   ): Promise<void> {
     for (const [index, exercise] of exercises.entries()) {
       await connection.query(
-        `INSERT INTO workout_routine_exercises (id, routine_id, name, target_sets, target_reps, suggested_weight, sort_order)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [randomUUID(), routineId, exercise.name, exercise.targetSets, exercise.targetReps, exercise.suggestedWeight, index],
+        `INSERT INTO workout_routine_exercises (id, routine_id, name, target_sets, target_reps, suggested_weight, is_bodyweight, sort_order)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          randomUUID(),
+          routineId,
+          exercise.name,
+          exercise.targetSets,
+          exercise.targetReps,
+          exercise.suggestedWeight,
+          exercise.isBodyweight,
+          index,
+        ],
       );
     }
   }
@@ -116,7 +126,7 @@ export class MysqlWorkoutRoutineRepository implements WorkoutRoutineRepository {
     if (rows.length === 0) return [];
     const routineIds = rows.map((row) => row.id);
     const [exerciseRows] = await this.pool.query<WorkoutRoutineExerciseRow[]>(
-      `SELECT id, routine_id, name, target_sets, target_reps, suggested_weight, sort_order
+      `SELECT id, routine_id, name, target_sets, target_reps, suggested_weight, is_bodyweight, sort_order
        FROM workout_routine_exercises WHERE routine_id IN (?) ORDER BY routine_id, sort_order ASC`,
       [routineIds],
     );
@@ -131,6 +141,7 @@ export class MysqlWorkoutRoutineRepository implements WorkoutRoutineRepository {
           targetSets: row.target_sets,
           targetReps: row.target_reps,
           suggestedWeight: row.suggested_weight === null ? null : Number(row.suggested_weight),
+          isBodyweight: Boolean(row.is_bodyweight),
           sortOrder: row.sort_order,
         }),
       );

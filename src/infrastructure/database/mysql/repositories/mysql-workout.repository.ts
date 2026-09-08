@@ -22,6 +22,7 @@ interface WorkoutExerciseRow extends RowDataPacket {
   workout_id: string;
   name: string;
   weight: number | null;
+  is_bodyweight: number;
   sets: number;
   // MariaDB's JSON type is a LONGTEXT alias (no native JSON wire type), so
   // mysql2 returns it as a raw string instead of auto-parsing. Real MySQL
@@ -51,9 +52,18 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
       );
       for (const [index, exercise] of input.exercises.entries()) {
         await connection.query(
-          `INSERT INTO workout_exercises (id, workout_id, name, weight, sets, reps, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [randomUUID(), workoutId, exercise.name, exercise.weight, exercise.sets, JSON.stringify(exercise.reps), index],
+          `INSERT INTO workout_exercises (id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            randomUUID(),
+            workoutId,
+            exercise.name,
+            exercise.weight,
+            exercise.isBodyweight,
+            exercise.sets,
+            JSON.stringify(exercise.reps),
+            index,
+          ],
         );
       }
       await connection.commit();
@@ -85,9 +95,18 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
       await connection.query('DELETE FROM workout_exercises WHERE workout_id = ?', [workoutId]);
       for (const [index, exercise] of input.exercises.entries()) {
         await connection.query(
-          `INSERT INTO workout_exercises (id, workout_id, name, weight, sets, reps, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [randomUUID(), workoutId, exercise.name, exercise.weight, exercise.sets, JSON.stringify(exercise.reps), index],
+          `INSERT INTO workout_exercises (id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            randomUUID(),
+            workoutId,
+            exercise.name,
+            exercise.weight,
+            exercise.isBodyweight,
+            exercise.sets,
+            JSON.stringify(exercise.reps),
+            index,
+          ],
         );
       }
       await connection.commit();
@@ -124,6 +143,14 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
   async delete(userId: string, workoutId: string): Promise<void> {
     await this.pool.query('DELETE FROM workouts WHERE id = ? AND user_id = ?', [workoutId, userId]);
+  }
+
+  async findDistinctDatesByUserInRange(userId: string, from: string, to: string): Promise<string[]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT DISTINCT workout_date FROM workouts WHERE user_id = ? AND workout_date BETWEEN ? AND ?`,
+      [userId, from, to],
+    );
+    return rows.map((row) => row.workout_date as string);
   }
 
   async findDistinctExerciseNames(userId: string, limit: number): Promise<string[]> {
@@ -173,7 +200,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     if (rows.length === 0) return [];
     const workoutIds = rows.map((row) => row.id);
     const [exerciseRows] = await this.pool.query<WorkoutExerciseRow[]>(
-      `SELECT id, workout_id, name, weight, sets, reps, sort_order FROM workout_exercises
+      `SELECT id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order FROM workout_exercises
        WHERE workout_id IN (?)
        ORDER BY workout_id, sort_order ASC`,
       [workoutIds],
@@ -187,6 +214,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
           workoutId: row.workout_id,
           name: row.name,
           weight: row.weight === null ? null : Number(row.weight),
+          isBodyweight: Boolean(row.is_bodyweight),
           sets: row.sets,
           reps: parseReps(row.reps),
           sortOrder: row.sort_order,

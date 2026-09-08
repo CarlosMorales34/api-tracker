@@ -4,6 +4,7 @@ import { UpdateWorkoutUseCase } from '../../application/use-cases/workout/update
 import { ListWorkoutsForWeekUseCase } from '../../application/use-cases/workout/list-workouts-for-week.use-case';
 import { DeleteWorkoutUseCase } from '../../application/use-cases/workout/delete-workout.use-case';
 import { GetWorkoutPerformanceUseCase } from '../../application/use-cases/workout/get-workout-performance.use-case';
+import { GetTrainingStreakUseCase } from '../../application/use-cases/workout/get-training-streak.use-case';
 import { isValidDateOnly } from '../../shared/utils/week';
 
 export class WorkoutController {
@@ -13,6 +14,7 @@ export class WorkoutController {
     private readonly listWorkoutsForWeekUseCase: ListWorkoutsForWeekUseCase,
     private readonly deleteWorkoutUseCase: DeleteWorkoutUseCase,
     private readonly getWorkoutPerformanceUseCase: GetWorkoutPerformanceUseCase,
+    private readonly getTrainingStreakUseCase: GetTrainingStreakUseCase,
   ) {}
 
   create = async (req: Request, res: Response): Promise<void> => {
@@ -56,5 +58,10 @@ export class WorkoutController {
   getPerformance = async (req: Request, res: Response): Promise<void> => {
     const performance = await this.getWorkoutPerformanceUseCase.execute(req.user!.id);
     res.status(200).json(performance);
+  };
+
+  getStreak = async (req: Request, res: Response): Promise<void> => {
+    const streak = await this.getTrainingStreakUseCase.execute(req.user!.id);
+    res.status(200).json(streak);
   };
 }

@@ -4,7 +4,10 @@ export interface WorkoutRoutineExerciseProps {
   name: string;
   targetSets: number;
   targetReps: number;
+  // Peso ADICIONAL sugerido si isBodyweight=true (ej. dominadas lastradas);
+  // peso absoluto si es false. Ver WorkoutExerciseProps.
   suggestedWeight: number | null;
+  isBodyweight: boolean;
   sortOrder: number;
 }
 
@@ -35,6 +38,10 @@ export class WorkoutRoutineExercise {
     return this.props.suggestedWeight;
   }
 
+  get isBodyweight(): boolean {
+    return this.props.isBodyweight;
+  }
+
   toJSON() {
     return {
       id: this.props.id,
@@ -42,6 +49,7 @@ export class WorkoutRoutineExercise {
       targetSets: this.props.targetSets,
       targetReps: this.props.targetReps,
       suggestedWeight: this.props.suggestedWeight,
+      isBodyweight: this.props.isBodyweight,
     };
   }
 }

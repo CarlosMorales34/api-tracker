@@ -131,6 +131,7 @@ import { DeleteWorkoutRoutineUseCase } from '../../../application/use-cases/work
 import { ListWorkoutsForWeekUseCase } from '../../../application/use-cases/workout/list-workouts-for-week.use-case';
 import { DeleteWorkoutUseCase } from '../../../application/use-cases/workout/delete-workout.use-case';
 import { GetWorkoutPerformanceUseCase } from '../../../application/use-cases/workout/get-workout-performance.use-case';
+import { GetTrainingStreakUseCase } from '../../../application/use-cases/workout/get-training-streak.use-case';
 import { PutWeekNotesUseCase } from '../../../application/use-cases/weekly-log/put-week-notes.use-case';
 import { ListAnnualCountersUseCase } from '../../../application/use-cases/weekly-log/list-annual-counters.use-case';
 import { CreateAnnualCounterUseCase } from '../../../application/use-cases/weekly-log/create-annual-counter.use-case';
@@ -389,6 +390,7 @@ export function createServer(pool: Pool): Express {
   const listWorkoutsForWeekUseCase = new ListWorkoutsForWeekUseCase(workoutRepository);
   const deleteWorkoutUseCase = new DeleteWorkoutUseCase(workoutRepository);
   const getWorkoutPerformanceUseCase = new GetWorkoutPerformanceUseCase(workoutRepository);
+  const getTrainingStreakUseCase = new GetTrainingStreakUseCase(workoutRepository);
 
   // --- Controllers ---
   const authController = new AuthController(
@@ -500,6 +502,7 @@ export function createServer(pool: Pool): Express {
     listWorkoutsForWeekUseCase,
     deleteWorkoutUseCase,
     getWorkoutPerformanceUseCase,
+    getTrainingStreakUseCase,
   );
   const workoutRoutineController = new WorkoutRoutineController(
     createWorkoutRoutineUseCase,

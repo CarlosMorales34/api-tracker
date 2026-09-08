@@ -3,6 +3,7 @@ import { Workout } from '../entities/workout.entity';
 export interface CreateWorkoutExerciseInput {
   name: string;
   weight: number | null;
+  isBodyweight: boolean;
   sets: number;
   reps: number[];
 }
@@ -34,6 +35,10 @@ export interface WorkoutRepository {
   // vive en la query misma, WHERE id = ? AND user_id = ?).
   update(userId: string, workoutId: string, input: UpdateWorkoutInput): Promise<Workout | null>;
   findByUserAndDateRange(userId: string, from: string, to: string): Promise<Workout[]>;
+  // Solo las fechas (sin ejercicios) en el rango -- para la racha de
+  // entrenamiento, más liviano que traer sesiones completas para una
+  // ventana de varios meses.
+  findDistinctDatesByUserInRange(userId: string, from: string, to: string): Promise<string[]>;
   findRecentByUser(userId: string, limit: number): Promise<Workout[]>;
   delete(userId: string, workoutId: string): Promise<void>;
   // Nombres únicos de ejercicios ya registrados por el usuario, más recientes

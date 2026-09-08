@@ -3,6 +3,7 @@ import { z } from 'zod';
 const workoutExerciseSchema = z.object({
   name: z.string().max(255),
   weight: z.number().nonnegative().nullable(),
+  isBodyweight: z.boolean().optional().default(false),
   sets: z.number().int().min(1).max(50),
   reps: z.array(z.number().int().nonnegative()).min(1).max(50),
 });

@@ -2,7 +2,14 @@ export interface WorkoutExerciseProps {
   id: string;
   workoutId: string;
   name: string;
+  // Para ejercicios de peso corporal (dominadas, lagartijas), este campo
+  // deja de significar "cuánto pesas" y pasa a ser peso ADICIONAL (ej.
+  // dominadas lastradas) -- null/0 = sin peso extra. Ver isBodyweight.
   weight: number | null;
+  // "De peso corporal" -- el usuario no tiene que inventar un número de
+  // libras para dominadas/lagartijas; `weight` queda libre para el peso
+  // extra opcional en variantes lastradas.
+  isBodyweight: boolean;
   sets: number;
   reps: number[];
   sortOrder: number;
@@ -25,6 +32,10 @@ export class WorkoutExercise {
 
   get weight(): number | null {
     return this.props.weight;
+  }
+
+  get isBodyweight(): boolean {
+    return this.props.isBodyweight;
   }
 
   get sets(): number {
@@ -50,6 +61,7 @@ export class WorkoutExercise {
       id: this.props.id,
       name: this.props.name,
       weight: this.props.weight,
+      isBodyweight: this.props.isBodyweight,
       sets: this.props.sets,
       reps: this.props.reps,
     };

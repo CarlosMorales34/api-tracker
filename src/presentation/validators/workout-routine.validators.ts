@@ -5,6 +5,7 @@ const workoutRoutineExerciseSchema = z.object({
   targetSets: z.number().int().min(1).max(50),
   targetReps: z.number().int().min(1).max(100),
   suggestedWeight: z.number().nonnegative().nullable(),
+  isBodyweight: z.boolean().optional().default(false),
 });
 
 export const createWorkoutRoutineSchema = z.object({

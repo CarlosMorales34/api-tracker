@@ -20,6 +20,7 @@ export class CreateWorkoutRoutineUseCase {
         targetSets: ex.targetSets,
         targetReps: ex.targetReps,
         suggestedWeight: ex.suggestedWeight,
+        isBodyweight: ex.isBodyweight ?? false,
       })),
     });
   }

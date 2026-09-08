@@ -114,6 +114,30 @@ export function workoutRoutes(controller: WorkoutController, authenticateMiddlew
 
   /**
    * @openapi
+   * /api/workouts/streak:
+   *   get:
+   *     tags: [Workouts]
+   *     summary: Racha de entrenamiento del usuario autenticado
+   *     description: Días consecutivos (hasta hoy) con al menos un entrenamiento registrado -- ya sea libre o a partir de una rutina, ambos cuentan igual. Distinta de la racha de Actividades del Home (esa cuenta registros de activity_logs).
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Racha actual
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 days: { type: integer }
+   *                 hasData: { type: boolean }
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/streak', controller.getStreak);
+
+  /**
+   * @openapi
    * /api/workouts/{id}:
    *   put:
    *     tags: [Workouts]

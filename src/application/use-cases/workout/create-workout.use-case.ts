@@ -21,6 +21,7 @@ export class CreateWorkoutUseCase {
       exercises: validExercises.map((ex) => ({
         name: ex.name.trim(),
         weight: ex.weight,
+        isBodyweight: ex.isBodyweight ?? false,
         sets: ex.sets,
         reps: ex.reps,
       })),

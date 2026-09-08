@@ -5,6 +5,7 @@ export interface WorkoutRoutineExerciseInput {
   targetSets: number;
   targetReps: number;
   suggestedWeight: number | null;
+  isBodyweight: boolean;
 }
 
 export interface WorkoutRoutineInput {
