@@ -1,7 +1,7 @@
 import { Router, RequestHandler } from 'express';
 import { WorkoutController } from '../controllers/workout.controller';
 import { validateBody } from '../middlewares/validate.middleware';
-import { createWorkoutSchema, updateWorkoutSchema } from '../validators/workout.validators';
+import { createWorkoutSchema, updateTrainingSettingsSchema, updateWorkoutSchema } from '../validators/workout.validators';
 
 /**
  * @openapi
@@ -135,6 +135,59 @@ export function workoutRoutes(controller: WorkoutController, authenticateMiddlew
    *         description: Access token faltante, inválido o expirado
    */
   router.get('/streak', controller.getStreak);
+
+  /**
+   * @openapi
+   * /api/workouts/settings:
+   *   get:
+   *     tags: [Workouts]
+   *     summary: Días de descanso configurados para la racha de entrenamiento
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Configuración actual
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 restWeekdays:
+   *                   type: array
+   *                   items: { type: integer, minimum: 0, maximum: 6 }
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/settings', controller.getSettings);
+
+  /**
+   * @openapi
+   * /api/workouts/settings:
+   *   put:
+   *     tags: [Workouts]
+   *     summary: Configurar los días de descanso (no rompen la racha de entrenamiento)
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [restWeekdays]
+   *             properties:
+   *               restWeekdays:
+   *                 type: array
+   *                 items: { type: integer, minimum: 0, maximum: 6 }
+   *     responses:
+   *       200:
+   *         description: Configuración actualizada
+   *       400:
+   *         description: Body inválido
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.put('/settings', validateBody(updateTrainingSettingsSchema), controller.updateSettings);
 
   /**
    * @openapi

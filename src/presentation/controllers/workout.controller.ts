@@ -5,6 +5,8 @@ import { ListWorkoutsForWeekUseCase } from '../../application/use-cases/workout/
 import { DeleteWorkoutUseCase } from '../../application/use-cases/workout/delete-workout.use-case';
 import { GetWorkoutPerformanceUseCase } from '../../application/use-cases/workout/get-workout-performance.use-case';
 import { GetTrainingStreakUseCase } from '../../application/use-cases/workout/get-training-streak.use-case';
+import { GetTrainingSettingsUseCase } from '../../application/use-cases/workout/get-training-settings.use-case';
+import { UpdateTrainingSettingsUseCase } from '../../application/use-cases/workout/update-training-settings.use-case';
 import { isValidDateOnly } from '../../shared/utils/week';
 
 export class WorkoutController {
@@ -15,6 +17,8 @@ export class WorkoutController {
     private readonly deleteWorkoutUseCase: DeleteWorkoutUseCase,
     private readonly getWorkoutPerformanceUseCase: GetWorkoutPerformanceUseCase,
     private readonly getTrainingStreakUseCase: GetTrainingStreakUseCase,
+    private readonly getTrainingSettingsUseCase: GetTrainingSettingsUseCase,
+    private readonly updateTrainingSettingsUseCase: UpdateTrainingSettingsUseCase,
   ) {}
 
   create = async (req: Request, res: Response): Promise<void> => {
@@ -63,5 +67,15 @@ export class WorkoutController {
   getStreak = async (req: Request, res: Response): Promise<void> => {
     const streak = await this.getTrainingStreakUseCase.execute(req.user!.id);
     res.status(200).json(streak);
+  };
+
+  getSettings = async (req: Request, res: Response): Promise<void> => {
+    const settings = await this.getTrainingSettingsUseCase.execute(req.user!.id);
+    res.status(200).json(settings);
+  };
+
+  updateSettings = async (req: Request, res: Response): Promise<void> => {
+    const settings = await this.updateTrainingSettingsUseCase.execute(req.user!.id, req.body);
+    res.status(200).json(settings);
   };
 }

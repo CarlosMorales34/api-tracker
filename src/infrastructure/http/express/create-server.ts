@@ -132,6 +132,9 @@ import { ListWorkoutsForWeekUseCase } from '../../../application/use-cases/worko
 import { DeleteWorkoutUseCase } from '../../../application/use-cases/workout/delete-workout.use-case';
 import { GetWorkoutPerformanceUseCase } from '../../../application/use-cases/workout/get-workout-performance.use-case';
 import { GetTrainingStreakUseCase } from '../../../application/use-cases/workout/get-training-streak.use-case';
+import { GetTrainingSettingsUseCase } from '../../../application/use-cases/workout/get-training-settings.use-case';
+import { UpdateTrainingSettingsUseCase } from '../../../application/use-cases/workout/update-training-settings.use-case';
+import { MysqlUserTrainingSettingsRepository } from '../../database/mysql/repositories/mysql-user-training-settings.repository';
 import { PutWeekNotesUseCase } from '../../../application/use-cases/weekly-log/put-week-notes.use-case';
 import { ListAnnualCountersUseCase } from '../../../application/use-cases/weekly-log/list-annual-counters.use-case';
 import { CreateAnnualCounterUseCase } from '../../../application/use-cases/weekly-log/create-annual-counter.use-case';
@@ -193,6 +196,7 @@ export function createServer(pool: Pool): Express {
   const dailyFeedbackRepository = new MysqlDailyFeedbackRepository(pool);
   const productivitySettingsRepository = new MysqlProductivitySettingsRepository(pool);
   const workoutRepository = new MysqlWorkoutRepository(pool);
+  const userTrainingSettingsRepository = new MysqlUserTrainingSettingsRepository(pool);
   const workoutRoutineRepository = new MysqlWorkoutRoutineRepository(pool);
   const userModuleSettingsRepository = new MysqlUserModuleSettingsRepository(pool);
   const bodyMeasurementRepository = new MysqlBodyMeasurementRepository(pool);
@@ -390,7 +394,9 @@ export function createServer(pool: Pool): Express {
   const listWorkoutsForWeekUseCase = new ListWorkoutsForWeekUseCase(workoutRepository);
   const deleteWorkoutUseCase = new DeleteWorkoutUseCase(workoutRepository);
   const getWorkoutPerformanceUseCase = new GetWorkoutPerformanceUseCase(workoutRepository);
-  const getTrainingStreakUseCase = new GetTrainingStreakUseCase(workoutRepository);
+  const getTrainingStreakUseCase = new GetTrainingStreakUseCase(workoutRepository, userTrainingSettingsRepository);
+  const getTrainingSettingsUseCase = new GetTrainingSettingsUseCase(userTrainingSettingsRepository);
+  const updateTrainingSettingsUseCase = new UpdateTrainingSettingsUseCase(userTrainingSettingsRepository);
 
   // --- Controllers ---
   const authController = new AuthController(
@@ -503,6 +509,8 @@ export function createServer(pool: Pool): Express {
     deleteWorkoutUseCase,
     getWorkoutPerformanceUseCase,
     getTrainingStreakUseCase,
+    getTrainingSettingsUseCase,
+    updateTrainingSettingsUseCase,
   );
   const workoutRoutineController = new WorkoutRoutineController(
     createWorkoutRoutineUseCase,

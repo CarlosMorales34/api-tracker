@@ -25,3 +25,7 @@ export const updateWorkoutSchema = z.object({
   comments: z.string().max(2000).nullable(),
   exercises: z.array(workoutExerciseSchema).min(1).max(30),
 });
+
+export const updateTrainingSettingsSchema = z.object({
+  restWeekdays: z.array(z.number().int().min(0).max(6)).max(7),
+});
