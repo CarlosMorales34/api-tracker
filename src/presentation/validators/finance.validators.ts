@@ -25,6 +25,7 @@ export const updateFinanceSettingsSchema = z.object({
 export const createDebtPaymentSchema = z.object({
   weekStartDate: z.string().date(),
   amount: z.number().positive(),
+  interestAmount: z.number().min(0).optional(),
 });
 
 export const createSavingsEntrySchema = z.object({
@@ -37,6 +38,13 @@ export const putFinanceAnnualIncomeSchema = z.object({
   amount: z.number().positive(),
 });
 
-export const setWalletBalanceSchema = z.object({
-  balance: z.number(),
+export const reconcileWalletSchema = z.object({
+  countedBalance: z.number(),
+  reason: z.string().trim().max(280).nullable().optional(),
+});
+
+export const updateMonthlyBudgetSchema = z.object({
+  year: z.number().int().min(2000).max(2100),
+  month: z.number().int().min(1).max(12),
+  amount: z.number().min(0),
 });

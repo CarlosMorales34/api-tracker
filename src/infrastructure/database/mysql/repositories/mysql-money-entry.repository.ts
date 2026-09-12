@@ -10,6 +10,7 @@ interface MoneyEntryRow extends RowDataPacket {
   amount: number;
   recurrence: MoneyEntryRecurrence;
   week_start_date: string;
+  currency: string | null;
 }
 
 interface SumRow extends RowDataPacket {
@@ -22,8 +23,8 @@ export class MysqlMoneyEntryRepository implements MoneyEntryRepository {
   async save(entry: MoneyEntry): Promise<void> {
     const json = entry.toJSON();
     await this.pool.query(
-      `INSERT INTO finance_entries (id, user_id, type, name, amount, recurrence, week_start_date) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [json.id, entry.userId, json.type, json.name, json.amount, json.recurrence, json.weekStartDate],
+      `INSERT INTO finance_entries (id, user_id, type, name, amount, recurrence, week_start_date, currency) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [json.id, entry.userId, json.type, json.name, json.amount, json.recurrence, json.weekStartDate, json.currency],
     );
   }
 
@@ -95,6 +96,17 @@ export class MysqlMoneyEntryRepository implements MoneyEntryRepository {
     return rows.map((row) => row.year);
   }
 
+  async findDistinctCurrenciesForYear(userId: string, type: MoneyEntryType, year: number): Promise<string[]> {
+    interface CurrencyRow extends RowDataPacket {
+      currency: string | null;
+    }
+    const [rows] = await this.pool.query<CurrencyRow[]>(
+      `SELECT DISTINCT currency FROM finance_entries WHERE user_id = ? AND type = ? AND YEAR(week_start_date) = ?`,
+      [userId, type, year],
+    );
+    return rows.map((row) => row.currency).filter((currency): currency is string => currency !== null);
+  }
+
   private toEntity(row: MoneyEntryRow): MoneyEntry {
     return MoneyEntry.fromPersistence({
       id: row.id,
@@ -104,6 +116,7 @@ export class MysqlMoneyEntryRepository implements MoneyEntryRepository {
       amount: row.amount,
       recurrence: row.recurrence,
       weekStartDate: row.week_start_date,
+      currency: row.currency,
     });
   }
 }

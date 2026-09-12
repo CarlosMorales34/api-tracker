@@ -110,7 +110,11 @@ import { CreateCreditCardUseCase } from '../../../application/use-cases/credit-c
 import { ListCreditCardsUseCase } from '../../../application/use-cases/credit-card/list-credit-cards.use-case';
 import { UpdateCreditCardUseCase } from '../../../application/use-cases/credit-card/update-credit-card.use-case';
 import { DeleteCreditCardUseCase } from '../../../application/use-cases/credit-card/delete-credit-card.use-case';
-import { SetWalletBalanceUseCase } from '../../../application/use-cases/finance/set-wallet-balance.use-case';
+import { ReconcileWalletUseCase } from '../../../application/use-cases/finance/reconcile-wallet.use-case';
+import { GetMonthlyBudgetUseCase } from '../../../application/use-cases/finance/get-monthly-budget.use-case';
+import { UpdateMonthlyBudgetUseCase } from '../../../application/use-cases/finance/update-monthly-budget.use-case';
+import { GetSavingsSummaryUseCase } from '../../../application/use-cases/finance/get-savings-summary.use-case';
+import { MysqlMonthlyBudgetRepository } from '../../database/mysql/repositories/mysql-monthly-budget.repository';
 import { GetWeightYearUseCase } from '../../../application/use-cases/weight/get-weight-year.use-case';
 import { PutWeightMonthUseCase } from '../../../application/use-cases/weight/put-weight-month.use-case';
 import { PutWeightMonthNoteUseCase } from '../../../application/use-cases/weight/put-weight-month-note.use-case';
@@ -189,6 +193,7 @@ export function createServer(pool: Pool): Express {
   const fixedMonthlyExpenseRepository = new MysqlFixedMonthlyExpenseRepository(pool);
   const fixedExpenseChargeRepository = new MysqlFixedExpenseChargeRepository(pool);
   const creditCardRepository = new MysqlCreditCardRepository(pool);
+  const monthlyBudgetRepository = new MysqlMonthlyBudgetRepository(pool);
   const weightEntryRepository = new MysqlWeightEntryRepository(pool);
   const weightSettingsRepository = new MysqlWeightSettingsRepository(pool);
   const annualCounterRepository = new MysqlAnnualCounterRepository(pool);
@@ -336,7 +341,19 @@ export function createServer(pool: Pool): Express {
   );
   const upsertFinanceAnnualIncomeUseCase = new UpsertFinanceAnnualIncomeUseCase(financeAnnualIncomeRepository);
   const deleteFinanceAnnualIncomeUseCase = new DeleteFinanceAnnualIncomeUseCase(financeAnnualIncomeRepository);
-  const setWalletBalanceUseCase = new SetWalletBalanceUseCase(financeSettingsRepository);
+  const reconcileWalletUseCase = new ReconcileWalletUseCase(financeSettingsRepository);
+  const getMonthlyBudgetUseCase = new GetMonthlyBudgetUseCase(
+    monthlyBudgetRepository,
+    dailyExpenseRepository,
+    fixedMonthlyExpenseRepository,
+  );
+  const updateMonthlyBudgetUseCase = new UpdateMonthlyBudgetUseCase(monthlyBudgetRepository, financeSettingsRepository);
+  const getSavingsSummaryUseCase = new GetSavingsSummaryUseCase(
+    moneyEntryRepository,
+    dailyExpenseRepository,
+    fixedMonthlyExpenseRepository,
+    financeDebtPaymentRepository,
+  );
 
   const createCreditCardUseCase = new CreateCreditCardUseCase(creditCardRepository);
   const listCreditCardsUseCase = new ListCreditCardsUseCase(creditCardRepository);
@@ -464,7 +481,10 @@ export function createServer(pool: Pool): Express {
     listFinanceAnnualIncomeUseCase,
     upsertFinanceAnnualIncomeUseCase,
     deleteFinanceAnnualIncomeUseCase,
-    setWalletBalanceUseCase,
+    reconcileWalletUseCase,
+    getMonthlyBudgetUseCase,
+    updateMonthlyBudgetUseCase,
+    getSavingsSummaryUseCase,
   );
   const creditCardController = new CreditCardController(
     createCreditCardUseCase,

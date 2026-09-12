@@ -1,6 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { Pool, RowDataPacket } from 'mysql2/promise';
 import { CreditCard } from '../../../../domain/entities/credit-card.entity';
+import { FinanceAdjustment } from '../../../../domain/entities/finance-adjustment.entity';
 import { CreditCardRepository } from '../../../../domain/repositories/credit-card.repository';
+import { NotFoundError } from '../../../../domain/errors/domain.error';
 
 interface CreditCardRow extends RowDataPacket {
   id: string;
@@ -44,6 +47,55 @@ export class MysqlCreditCardRepository implements CreditCardRepository {
 
   async deleteById(id: string): Promise<void> {
     await this.pool.query('DELETE FROM credit_cards WHERE id = ?', [id]);
+  }
+
+  async reconcileAmountOwed(
+    userId: string,
+    cardId: string,
+    newAmountOwed: number,
+    reason: string | null,
+  ): Promise<{ card: CreditCard; adjustment: FinanceAdjustment }> {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query<CreditCardRow[]>(
+        'SELECT * FROM credit_cards WHERE id = ? AND user_id = ? LIMIT 1 FOR UPDATE',
+        [cardId, userId],
+      );
+      const [row] = rows;
+      if (!row) throw new NotFoundError('CreditCard', cardId);
+
+      const previousAmount = row.amount_owed;
+      const difference = Math.round((newAmountOwed - previousAmount) * 100) / 100;
+      const adjustmentId = randomUUID();
+
+      await connection.query('UPDATE credit_cards SET amount_owed = ? WHERE id = ?', [newAmountOwed, cardId]);
+      await connection.query(
+        `INSERT INTO finance_adjustments (id, user_id, target, target_id, previous_amount, new_amount, difference, reason)
+         VALUES (?, ?, 'credit_card', ?, ?, ?, ?, ?)`,
+        [adjustmentId, userId, cardId, previousAmount, newAmountOwed, difference, reason],
+      );
+      await connection.commit();
+
+      return {
+        card: this.toEntity({ ...row, amount_owed: newAmountOwed }),
+        adjustment: {
+          id: adjustmentId,
+          target: 'credit_card',
+          targetId: cardId,
+          previousAmount,
+          newAmount: newAmountOwed,
+          difference,
+          reason,
+          createdAt: new Date(),
+        },
+      };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 
   private toEntity(row: CreditCardRow): CreditCard {

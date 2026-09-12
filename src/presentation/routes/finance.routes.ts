@@ -8,9 +8,10 @@ import {
   createMoneyEntrySchema,
   createSavingsEntrySchema,
   putFinanceAnnualIncomeSchema,
-  setWalletBalanceSchema,
+  reconcileWalletSchema,
   updateFinanceSettingsSchema,
   updateMoneyEntrySchema,
+  updateMonthlyBudgetSchema,
 } from '../validators/finance.validators';
 
 const CREATE_ENTRY_ROUTE = 'finance-entries:create';
@@ -439,8 +440,8 @@ export function financeRoutes(
    * /api/finance/wallet:
    *   put:
    *     tags: [Finance]
-   *     summary: Corregir a mano el saldo de cartera (liquidez) del usuario autenticado
-   *     description: Fija el saldo a un valor absoluto -- no es un ajuste relativo. Usado cuando el usuario cuenta su dinero físico y quiere resetear el tracking; a partir de ahí, la app sigue ajustando automáticamente al registrar ingresos/gastos.
+   *     summary: Conciliar el saldo de cartera (liquidez) del usuario autenticado
+   *     description: Registra la diferencia entre el saldo contado y el calculado como un FinanceAdjustment auditable, y aplica el nuevo saldo -- ya no sobrescribe en silencio (antes PUT /wallet {balance}).
    *     security:
    *       - bearerAuth: []
    *     requestBody:
@@ -449,21 +450,99 @@ export function financeRoutes(
    *         application/json:
    *           schema:
    *             type: object
-   *             required: [balance]
+   *             required: [countedBalance]
    *             properties:
-   *               balance: { type: number }
+   *               countedBalance: { type: number }
+   *               reason: { type: string, nullable: true, maxLength: 280 }
    *     responses:
    *       200:
-   *         description: Settings actualizados (estado completo)
-   *         content:
-   *           application/json:
-   *             schema: { $ref: '#/components/schemas/FinanceSettings' }
+   *         description: Settings actualizados + el ajuste registrado
    *       400:
    *         description: Body inválido
    *       401:
    *         description: Access token faltante, inválido o expirado
    */
-  router.put('/wallet', validateBody(setWalletBalanceSchema), controller.setWallet);
+  router.put('/wallet', validateBody(reconcileWalletSchema), controller.reconcileWallet);
+
+  /**
+   * @openapi
+   * /api/finance/monthly-budget:
+   *   get:
+   *     tags: [Finance]
+   *     summary: Presupuesto mensual y su avance para un año+mes del usuario autenticado
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: year
+   *         required: true
+   *         schema: { type: integer }
+   *       - in: query
+   *         name: month
+   *         required: true
+   *         schema: { type: integer, minimum: 1, maximum: 12 }
+   *     responses:
+   *       200:
+   *         description: Resumen de presupuesto (budgetAmount null si no hay presupuesto asignado ese mes)
+   *       400:
+   *         description: year/month inválidos
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/monthly-budget', controller.getMonthlyBudget);
+
+  /**
+   * @openapi
+   * /api/finance/monthly-budget:
+   *   put:
+   *     tags: [Finance]
+   *     summary: Asignar el presupuesto de un año+mes del usuario autenticado
+   *     description: Nunca reescribe un mes pasado -- cada año+mes es su propia fila.
+   *     security:
+   *       - bearerAuth: []
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [year, month, amount]
+   *             properties:
+   *               year: { type: integer }
+   *               month: { type: integer, minimum: 1, maximum: 12 }
+   *               amount: { type: number, minimum: 0 }
+   *     responses:
+   *       200:
+   *         description: Presupuesto guardado
+   *       400:
+   *         description: Body inválido
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.put('/monthly-budget', validateBody(updateMonthlyBudgetSchema), controller.updateMonthlyBudget);
+
+  /**
+   * @openapi
+   * /api/finance/savings-summary:
+   *   get:
+   *     tags: [Finance]
+   *     summary: Ahorro neto calculado (ingresos - gastos reales) de un año del usuario autenticado
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: query
+   *         name: year
+   *         required: true
+   *         schema: { type: integer }
+   *     responses:
+   *       200:
+   *         description: Ahorro acumulado del año hasta hoy + de este mes
+   *       400:
+   *         description: year inválido
+   *       401:
+   *         description: Access token faltante, inválido o expirado
+   */
+  router.get('/savings-summary', controller.getSavingsSummary);
 
   return router;
 }

@@ -12,4 +12,5 @@ export const updateCreditCardSchema = z.object({
   creditLimit: z.number().positive().optional(),
   dueDay: z.number().int().min(1).max(31).optional(),
   amountOwed: z.number().min(0).optional(),
+  reason: z.string().trim().max(280).nullable().optional(),
 });

@@ -9,6 +9,10 @@ export interface MoneyEntryProps {
   amount: number;
   recurrence: MoneyEntryRecurrence;
   weekStartDate: string;
+  // Moneda vigente al momento de crear la entrada -- inmutable después,
+  // nunca se reinterpreta si el usuario cambia su moneda en Ajustes. NULL
+  // solo en filas de antes de esta columna que no pudieron backfillearse.
+  currency: string | null;
 }
 
 export class MoneyEntry {
@@ -22,6 +26,7 @@ export class MoneyEntry {
     amount: number;
     recurrence: MoneyEntryRecurrence;
     weekStartDate: string;
+    currency: string;
   }): MoneyEntry {
     if (!props.name.trim()) {
       throw new Error('MoneyEntry name cannot be empty');
@@ -65,6 +70,10 @@ export class MoneyEntry {
     return this.props.recurrence;
   }
 
+  get currency(): string | null {
+    return this.props.currency;
+  }
+
   applyUpdate(changes: { name?: string; amount?: number; recurrence?: MoneyEntryRecurrence }): void {
     if (changes.name !== undefined) {
       if (!changes.name.trim()) {
@@ -90,6 +99,7 @@ export class MoneyEntry {
     amount: number;
     recurrence: MoneyEntryRecurrence;
     weekStartDate: string;
+    currency: string | null;
   } {
     return {
       id: this.props.id,
@@ -98,6 +108,7 @@ export class MoneyEntry {
       amount: this.props.amount,
       recurrence: this.props.recurrence,
       weekStartDate: this.props.weekStartDate,
+      currency: this.props.currency,
     };
   }
 }

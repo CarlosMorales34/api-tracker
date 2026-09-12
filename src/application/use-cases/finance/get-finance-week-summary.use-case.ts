@@ -7,6 +7,7 @@ import { FinanceSavingsRepository } from '../../../domain/repositories/finance-s
 import { DailyExpenseRepository } from '../../../domain/repositories/daily-expense.repository';
 import { FixedMonthlyExpenseRepository } from '../../../domain/repositories/fixed-monthly-expense.repository';
 import { FixedExpenseChargeRepository } from '../../../domain/repositories/fixed-expense-charge.repository';
+import { netWorth, weeklyBalance } from '../../../shared/utils/finance-calculations';
 import { addDaysUTC, formatDateOnly, parseDateOnly, todayDateOnly } from '../../../shared/utils/week';
 
 type MoneyEntryJSON = ReturnType<MoneyEntry['toJSON']>;
@@ -17,16 +18,23 @@ export interface FinanceWeekSummary {
   totalIncome: number;
   // Fuente: Gastos diarios (daily_expenses + fixed_monthly_expenses), no
   // finance_entries -- Finanzas ya no captura gastos, evita duplicar el dato.
+  // Incluye el interés de abonos a deuda de esta semana (interestThisWeek).
   totalExpense: number;
+  interestThisWeek: number;
+  balance: number;
   debtTotal: number;
   debtPaid: number;
   debtRemaining: number;
   weekAbono: number;
   savingsAccumulated: number;
   weekSavings: number;
+  // Moneda de esta semana -- 'mixed' si sus ingresos no comparten una sola
+  // moneda (ver moneda por movimiento en money-entry.entity.ts). En ese
+  // caso totalIncome/balance no deben mostrarse como una cifra confiable.
   currency: string;
   week1AnchorDate: string | null;
   walletBalance: number;
+  netWorth: number;
 }
 
 export class GetFinanceWeekSummaryUseCase {
@@ -46,40 +54,48 @@ export class GetFinanceWeekSummaryUseCase {
     const totalIncome = sum(income.map((entry) => entry.amount));
 
     const weekEnd = formatDateOnly(addDaysUTC(parseDateOnly(weekStartDate), 6));
-    const [debtPaid, weekAbono, savingsAccumulated, weekSavings, dailyExpenseTotal, fixedExpenseTotal] = await Promise.all([
-      this.debtPaymentRepository.sumByUser(userId),
-      this.debtPaymentRepository.sumByUserAndWeek(userId, weekStartDate),
-      this.savingsRepository.sumByUser(userId),
-      this.savingsRepository.sumByUserAndWeek(userId, weekStartDate),
-      this.dailyExpenseRepository.sumByUserAndDateRange(userId, weekStartDate, weekEnd),
-      this.sumFixedExpensesInWeek(userId, weekStartDate),
-      // Cobra (una sola vez por ocurrencia mensual) los gastos programados
-      // cuyo día ya pasó este mes, sin importar qué semana se esté viendo --
-      // si esto dependiera de la semana mostrada, un gasto con día 1 nunca
-      // se cobraría mientras el usuario navegue semanas de mediados de mes.
-      this.chargeDueFixedExpenses(userId),
-    ]);
-    const totalExpense = sum([dailyExpenseTotal, fixedExpenseTotal]);
+    const [debtPaid, weekAbono, interestThisWeek, savingsAccumulated, weekSavings, dailyExpenseTotal, fixedExpenseTotal] =
+      await Promise.all([
+        this.debtPaymentRepository.sumByUser(userId),
+        this.debtPaymentRepository.sumByUserAndWeek(userId, weekStartDate),
+        this.debtPaymentRepository.sumInterestByUserAndWeek(userId, weekStartDate),
+        this.savingsRepository.sumByUser(userId),
+        this.savingsRepository.sumByUserAndWeek(userId, weekStartDate),
+        this.dailyExpenseRepository.sumByUserAndDateRange(userId, weekStartDate, weekEnd),
+        this.sumFixedExpensesInWeek(userId, weekStartDate),
+        // Cobra (una sola vez por ocurrencia mensual) los gastos programados
+        // cuyo día ya pasó este mes, sin importar qué semana se esté viendo --
+        // si esto dependiera de la semana mostrada, un gasto con día 1 nunca
+        // se cobraría mientras el usuario navegue semanas de mediados de mes.
+        this.chargeDueFixedExpenses(userId),
+      ]);
+    const totalExpense = sum([dailyExpenseTotal, fixedExpenseTotal, interestThisWeek]);
 
     // Se lee después de chargeDueFixedExpenses a propósito: esa llamada
     // puede haber ajustado wallet_balance -- el balance devuelto debe
     // reflejar eso, no una copia de antes del cargo.
     const settings = (await this.financeSettingsRepository.find(userId)) ?? DEFAULT_FINANCE_SETTINGS;
 
+    const currencies = new Set(income.map((entry) => entry.currency ?? settings.currency));
+    const weekCurrency = currencies.size > 1 ? 'mixed' : ([...currencies][0] ?? settings.currency);
+
     return {
       weekStartDate,
       income: income.map((entry) => entry.toJSON()),
       totalIncome,
       totalExpense,
+      interestThisWeek,
+      balance: weeklyBalance({ income: totalIncome, expense: totalExpense }),
       debtTotal: settings.debtTotal,
       debtPaid,
       debtRemaining: settings.debtTotal - debtPaid,
       weekAbono,
       savingsAccumulated,
       weekSavings,
-      currency: settings.currency,
+      currency: weekCurrency,
       week1AnchorDate: settings.week1AnchorDate,
       walletBalance: settings.walletBalance,
+      netWorth: netWorth(settings.walletBalance, settings.debtTotal - debtPaid),
     };
   }
 

@@ -18,4 +18,8 @@ export interface MoneyEntryRepository {
   // del historial anual se calculan en vivo (suma de finance_entries) en vez
   // de depender de un total capturado a mano.
   findDistinctYearsWithIncome(userId: string): Promise<number[]>;
+  // Monedas distintas usadas por las entradas de un tipo en un año -- si hay
+  // más de una, ese año no se puede sumar en una sola moneda (ver "moneda
+  // mixta" en ListFinanceAnnualIncomeUseCase).
+  findDistinctCurrenciesForYear(userId: string, type: MoneyEntryType, year: number): Promise<string[]>;
 }

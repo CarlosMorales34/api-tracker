@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_FINANCE_SETTINGS } from '../../../domain/entities/finance-settings.entity';
 import { MoneyEntry } from '../../../domain/entities/money-entry.entity';
 import { MoneyEntryRepository } from '../../../domain/repositories/money-entry.repository';
 import { FinanceSettingsRepository } from '../../../domain/repositories/finance-settings.repository';
@@ -11,6 +12,7 @@ export class CreateMoneyEntryUseCase {
   ) {}
 
   async execute(userId: string, dto: CreateMoneyEntryDto): Promise<MoneyEntry> {
+    const settings = (await this.financeSettingsRepository.find(userId)) ?? DEFAULT_FINANCE_SETTINGS;
     const entry = MoneyEntry.create({
       id: randomUUID(),
       userId,
@@ -19,6 +21,9 @@ export class CreateMoneyEntryUseCase {
       amount: dto.amount,
       recurrence: dto.recurrence,
       weekStartDate: dto.weekStartDate,
+      // Moneda vigente AHORA -- queda fija en esta entrada aunque el usuario
+      // cambie de moneda después (ver domain/entities/money-entry.entity.ts).
+      currency: settings.currency,
     });
 
     await this.moneyEntryRepository.save(entry);

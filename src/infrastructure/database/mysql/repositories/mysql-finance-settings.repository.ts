@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { Pool, RowDataPacket } from 'mysql2/promise';
+import { FinanceAdjustment } from '../../../../domain/entities/finance-adjustment.entity';
 import { Currency, DEFAULT_FINANCE_SETTINGS, FinanceSettings } from '../../../../domain/entities/finance-settings.entity';
 import { FinanceSettingsRepository } from '../../../../domain/repositories/finance-settings.repository';
 
@@ -52,21 +54,69 @@ export class MysqlFinanceSettingsRepository implements FinanceSettingsRepository
     return next;
   }
 
-  async setWalletBalance(userId: string, balance: number): Promise<FinanceSettings> {
-    const current = (await this.find(userId)) ?? DEFAULT_FINANCE_SETTINGS;
-    await this.pool.query(
-      `INSERT INTO user_finance_settings (user_id, debt_total, currency, week1_anchor_date, wallet_balance) VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE wallet_balance = VALUES(wallet_balance)`,
-      [userId, current.debtTotal, current.currency, current.week1AnchorDate, balance],
-    );
-    return { ...current, walletBalance: balance };
-  }
-
   async adjustWalletBalance(userId: string, delta: number): Promise<void> {
     await this.pool.query(
       `INSERT INTO user_finance_settings (user_id, wallet_balance) VALUES (?, ?)
        ON DUPLICATE KEY UPDATE wallet_balance = wallet_balance + VALUES(wallet_balance)`,
       [userId, delta],
     );
+  }
+
+  async reconcileWallet(
+    userId: string,
+    countedBalance: number,
+    reason: string | null,
+  ): Promise<{ settings: FinanceSettings; adjustment: FinanceAdjustment }> {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query<FinanceSettingsRow[]>(
+        'SELECT debt_total, currency, week1_anchor_date, wallet_balance FROM user_finance_settings WHERE user_id = ? LIMIT 1 FOR UPDATE',
+        [userId],
+      );
+      const current = rows[0]
+        ? {
+            debtTotal: rows[0].debt_total,
+            currency: rows[0].currency,
+            week1AnchorDate: rows[0].week1_anchor_date,
+            walletBalance: rows[0].wallet_balance,
+          }
+        : DEFAULT_FINANCE_SETTINGS;
+
+      const previousAmount = current.walletBalance;
+      const difference = Math.round((countedBalance - previousAmount) * 100) / 100;
+      const adjustmentId = randomUUID();
+
+      await connection.query(
+        `INSERT INTO user_finance_settings (user_id, debt_total, currency, week1_anchor_date, wallet_balance) VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE wallet_balance = VALUES(wallet_balance)`,
+        [userId, current.debtTotal, current.currency, current.week1AnchorDate, countedBalance],
+      );
+      await connection.query(
+        `INSERT INTO finance_adjustments (id, user_id, target, target_id, previous_amount, new_amount, difference, reason)
+         VALUES (?, ?, 'wallet', NULL, ?, ?, ?, ?)`,
+        [adjustmentId, userId, previousAmount, countedBalance, difference, reason],
+      );
+      await connection.commit();
+
+      return {
+        settings: { ...current, walletBalance: countedBalance },
+        adjustment: {
+          id: adjustmentId,
+          target: 'wallet',
+          targetId: null,
+          previousAmount,
+          newAmount: countedBalance,
+          difference,
+          reason,
+          createdAt: new Date(),
+        },
+      };
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
   }
 }

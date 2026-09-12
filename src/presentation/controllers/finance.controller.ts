@@ -10,7 +10,10 @@ import { CreateSavingsEntryUseCase } from '../../application/use-cases/finance/c
 import { ListFinanceAnnualIncomeUseCase } from '../../application/use-cases/finance/list-finance-annual-income.use-case';
 import { UpsertFinanceAnnualIncomeUseCase } from '../../application/use-cases/finance/upsert-finance-annual-income.use-case';
 import { DeleteFinanceAnnualIncomeUseCase } from '../../application/use-cases/finance/delete-finance-annual-income.use-case';
-import { SetWalletBalanceUseCase } from '../../application/use-cases/finance/set-wallet-balance.use-case';
+import { ReconcileWalletUseCase } from '../../application/use-cases/finance/reconcile-wallet.use-case';
+import { GetMonthlyBudgetUseCase } from '../../application/use-cases/finance/get-monthly-budget.use-case';
+import { UpdateMonthlyBudgetUseCase } from '../../application/use-cases/finance/update-monthly-budget.use-case';
+import { GetSavingsSummaryUseCase } from '../../application/use-cases/finance/get-savings-summary.use-case';
 import { isValidDateOnly } from '../../shared/utils/week';
 
 export class FinanceController {
@@ -26,7 +29,10 @@ export class FinanceController {
     private readonly listFinanceAnnualIncomeUseCase: ListFinanceAnnualIncomeUseCase,
     private readonly upsertFinanceAnnualIncomeUseCase: UpsertFinanceAnnualIncomeUseCase,
     private readonly deleteFinanceAnnualIncomeUseCase: DeleteFinanceAnnualIncomeUseCase,
-    private readonly setWalletBalanceUseCase: SetWalletBalanceUseCase,
+    private readonly reconcileWalletUseCase: ReconcileWalletUseCase,
+    private readonly getMonthlyBudgetUseCase: GetMonthlyBudgetUseCase,
+    private readonly updateMonthlyBudgetUseCase: UpdateMonthlyBudgetUseCase,
+    private readonly getSavingsSummaryUseCase: GetSavingsSummaryUseCase,
   ) {}
 
   getSettings = async (req: Request, res: Response): Promise<void> => {
@@ -109,8 +115,34 @@ export class FinanceController {
     res.status(204).send();
   };
 
-  setWallet = async (req: Request, res: Response): Promise<void> => {
-    const settings = await this.setWalletBalanceUseCase.execute(req.user!.id, req.body.balance);
-    res.status(200).json(settings);
+  reconcileWallet = async (req: Request, res: Response): Promise<void> => {
+    const result = await this.reconcileWalletUseCase.execute(req.user!.id, req.body);
+    res.status(200).json(result);
+  };
+
+  getMonthlyBudget = async (req: Request, res: Response): Promise<void> => {
+    const year = Number(req.query.year);
+    const month = Number(req.query.month);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+      res.status(400).json({ message: 'year and month query params are required' });
+      return;
+    }
+    const summary = await this.getMonthlyBudgetUseCase.execute(req.user!.id, year, month);
+    res.status(200).json(summary);
+  };
+
+  updateMonthlyBudget = async (req: Request, res: Response): Promise<void> => {
+    const budget = await this.updateMonthlyBudgetUseCase.execute(req.user!.id, req.body);
+    res.status(200).json(budget);
+  };
+
+  getSavingsSummary = async (req: Request, res: Response): Promise<void> => {
+    const year = Number(req.query.year);
+    if (!Number.isInteger(year)) {
+      res.status(400).json({ message: 'year query param is required' });
+      return;
+    }
+    const summary = await this.getSavingsSummaryUseCase.execute(req.user!.id, year);
+    res.status(200).json(summary);
   };
 }
