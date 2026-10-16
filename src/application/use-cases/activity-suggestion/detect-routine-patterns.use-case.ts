@@ -1,6 +1,7 @@
 import { RoutinePattern } from '../../../domain/entities/routine-pattern.entity';
 import { RoutineLogRepository } from '../../../domain/repositories/routine-log.repository';
 import { SUGGESTION_THRESHOLDS } from '../../../shared/config/suggestion-thresholds';
+import { principalSleepEntries } from '../../../shared/utils/analytics-calculations';
 import {
   ManualTimeSample,
   buildScheduleEstimate,
@@ -35,7 +36,9 @@ export class DetectRoutinePatternsUseCase {
     const entries = await this.routineLogRepository.findTimesByUserAndDateRange(userId, from, today);
 
     const byRoutine = new Map<string, RoutineGroup>();
+    const mainSleep = new Set(principalSleepEntries(entries.filter((entry) => entry.isSleep)));
     for (const entry of entries) {
+      if (entry.isSleep && !mainSleep.has(entry)) continue;
       const logDate = parseDateOnly(entry.logDate);
       const group = byRoutine.get(entry.routineId) ?? {
         routineName: entry.routineName,

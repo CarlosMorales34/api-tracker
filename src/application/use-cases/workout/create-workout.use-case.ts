@@ -19,6 +19,7 @@ export class CreateWorkoutUseCase {
       durationSeconds: dto.durationSeconds,
       comments: dto.comments && dto.comments.trim().length > 0 ? dto.comments.trim() : null,
       exercises: validExercises.map((ex) => ({
+        exerciseId: ex.exerciseId,
         name: ex.name.trim(),
         weight: ex.weight,
         isBodyweight: ex.isBodyweight ?? false,

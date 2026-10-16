@@ -1,4 +1,5 @@
 export interface WorkoutRoutineExerciseDto {
+  exerciseId?: string | null;
   name: string;
   targetSets: number;
   targetReps: number;
@@ -9,6 +10,7 @@ export interface WorkoutRoutineExerciseDto {
 export interface CreateWorkoutRoutineDto {
   name: string;
   weekday: number | null;
+  weekdays?: number[];
   exercises: WorkoutRoutineExerciseDto[];
 }
 

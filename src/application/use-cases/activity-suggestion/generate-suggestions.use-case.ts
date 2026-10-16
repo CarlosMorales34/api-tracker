@@ -61,9 +61,9 @@ function confidenceForSuggestion(input: {
   recentDismissalsForSimilar: number;
   recentAcceptancesForSimilar: number;
 }): number {
-  const scheduleConfidence = computeConfidence(input);
+  const scheduleConfidence = computeConfidence({ ...input, recentAcceptancesForSimilar: 0 });
   const habitConfidence = computeHabitConfidence(input);
-  return Math.max(scheduleConfidence, habitConfidence);
+  return Math.min(scheduleConfidence, habitConfidence);
 }
 
 function describeScheduleCertainty(dispersionMinutes: number): string {
@@ -179,7 +179,14 @@ export class GenerateSuggestionsUseCase {
         recentDismissalsForSimilar: recentDismissals,
         recentAcceptancesForSimilar: recentAcceptances,
       });
-      if (!meetsShowThreshold(confidence)) continue;
+      // A routine can be frequent while its clock times remain variable.
+      if (!meetsShowThreshold(computeHabitConfidence({
+        sampleCount: pattern.sampleCount,
+        distinctWeeks: pattern.distinctWeeks,
+        daysSinceLastSample: pattern.lastSeenDaysAgo,
+        recentDismissalsForSimilar: recentDismissals,
+        recentAcceptancesForSimilar: 0,
+      }))) continue;
 
       const corrections = await this.suggestionFeedbackRepository.findRecentCorrectionsForTarget(
         userId,
@@ -197,7 +204,7 @@ export class GenerateSuggestionsUseCase {
       const blendedEndMinutes = blendMinutesWithCorrections(parseHHMMToMinutes(pattern.endTime), endCorrections);
 
       const percent = Math.round(pattern.matchRatio * 100);
-      const prefix = currentWeekdays === null ? 'Podemos confirmar el horario de tu rutina: ' : 'Tu rutina cambió de patrón: ';
+      const prefix = currentWeekdays === null ? 'Podemos confirmar el horario de tu rutina: ' : 'Horario basado en tus registros: ';
       const reason =
         `${prefix}${describeWeekdays(pattern.weekdays)} · ${formatMinutesAsHHMM(blendedStartMinutes)}-${formatMinutesAsHHMM(blendedEndMinutes)} · ` +
         `${pattern.sampleCount} registros en ${pattern.distinctWeeks} semanas · ${percent}% de coincidencia${describeScheduleCertainty(scheduleDispersionMinutes)}`;

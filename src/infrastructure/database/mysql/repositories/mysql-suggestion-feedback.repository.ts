@@ -44,7 +44,13 @@ export class MysqlSuggestionFeedbackRepository implements SuggestionFeedbackRepo
        INNER JOIN activity_suggestions asug ON asug.id = sf.suggestion_id
        WHERE sf.user_id = ? AND sf.action = 'accepted_with_changes'
          AND asug.activity_id <=> ? AND asug.routine_id <=> ?
-       ORDER BY sf.created_at ASC
+         AND (
+           (JSON_CONTAINS_PATH(sf.final_values, 'one', '$.suggestedStartTime') AND
+             NOT (JSON_UNQUOTE(JSON_EXTRACT(sf.final_values, '$.suggestedStartTime')) <=> JSON_UNQUOTE(JSON_EXTRACT(sf.original_values, '$.suggestedStartTime'))))
+           OR (JSON_CONTAINS_PATH(sf.final_values, 'one', '$.suggestedEndTime') AND
+             NOT (JSON_UNQUOTE(JSON_EXTRACT(sf.final_values, '$.suggestedEndTime')) <=> JSON_UNQUOTE(JSON_EXTRACT(sf.original_values, '$.suggestedEndTime'))))
+         )
+       ORDER BY sf.created_at DESC
        LIMIT ?`,
       [userId, target.activityId, target.routineId, limit],
     );

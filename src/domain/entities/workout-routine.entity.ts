@@ -2,6 +2,7 @@ export interface WorkoutRoutineExerciseProps {
   id: string;
   routineId: string;
   name: string;
+  exerciseId?: string | null;
   targetSets: number;
   targetReps: number;
   // Peso ADICIONAL sugerido si isBodyweight=true (ej. dominadas lastradas);
@@ -46,6 +47,7 @@ export class WorkoutRoutineExercise {
     return {
       id: this.props.id,
       name: this.props.name,
+      exerciseId: this.props.exerciseId ?? null,
       targetSets: this.props.targetSets,
       targetReps: this.props.targetReps,
       suggestedWeight: this.props.suggestedWeight,
@@ -59,6 +61,7 @@ export interface WorkoutRoutineProps {
   userId: string;
   name: string;
   weekday: number | null;
+  weekdays?: number[];
   exercises: WorkoutRoutineExercise[];
 }
 
@@ -94,6 +97,7 @@ export class WorkoutRoutine {
       id: this.props.id,
       name: this.props.name,
       weekday: this.props.weekday,
+      weekdays: this.props.weekdays ?? (this.props.weekday === null ? [] : [this.props.weekday]),
       exercises: this.props.exercises.map((ex) => ex.toJSON()),
     };
   }

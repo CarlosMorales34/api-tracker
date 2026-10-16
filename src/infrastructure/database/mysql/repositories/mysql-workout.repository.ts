@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Pool, ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { Workout, WorkoutExercise } from '../../../../domain/entities/workout.entity';
+import { resolveExerciseIdentity } from './mysql-exercise-catalog.repository';
 import {
   CreateWorkoutInput,
   ExercisePerformancePoint,
@@ -21,6 +22,7 @@ interface WorkoutExerciseRow extends RowDataPacket {
   id: string;
   workout_id: string;
   name: string;
+  exercise_id: string | null;
   weight: number | null;
   is_bodyweight: number;
   sets: number;
@@ -51,18 +53,20 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
         [workoutId, userId, input.workoutDate, input.sourceRoutineId, input.durationSeconds, input.comments],
       );
       for (const [index, exercise] of input.exercises.entries()) {
+        const identity = await resolveExerciseIdentity(connection, userId, exercise);
         await connection.query(
-          `INSERT INTO workout_exercises (id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO workout_exercises (id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order, exercise_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             randomUUID(),
             workoutId,
-            exercise.name,
+            identity.name,
             exercise.weight,
             exercise.isBodyweight,
             exercise.sets,
             JSON.stringify(exercise.reps),
             index,
+            identity.id,
           ],
         );
       }
@@ -94,18 +98,20 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
       await connection.query('DELETE FROM workout_exercises WHERE workout_id = ?', [workoutId]);
       for (const [index, exercise] of input.exercises.entries()) {
+        const identity = await resolveExerciseIdentity(connection, userId, exercise);
         await connection.query(
-          `INSERT INTO workout_exercises (id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO workout_exercises (id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order, exercise_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             randomUUID(),
             workoutId,
-            exercise.name,
+            identity.name,
             exercise.weight,
             exercise.isBodyweight,
             exercise.sets,
             JSON.stringify(exercise.reps),
             index,
+            identity.id,
           ],
         );
       }
@@ -155,11 +161,12 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
 
   async findDistinctExerciseNames(userId: string, limit: number): Promise<string[]> {
     const [rows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT we.name AS name, MAX(w.workout_date) AS last_date
+      `SELECT COALESCE(ec.name, we.name) AS name, MAX(w.workout_date) AS last_date
        FROM workout_exercises we
        JOIN workouts w ON w.id = we.workout_id
+       LEFT JOIN exercise_catalog ec ON ec.id = we.exercise_id
        WHERE w.user_id = ?
-       GROUP BY we.name
+       GROUP BY COALESCE(ec.name, we.name)
        ORDER BY last_date DESC
        LIMIT ?`,
       [userId, limit],
@@ -172,12 +179,13 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
       `SELECT w.workout_date AS workout_date, w.source_routine_id AS source_routine_id, we.weight AS weight, we.reps AS reps
        FROM workout_exercises we
        JOIN workouts w ON w.id = we.workout_id
-       WHERE w.user_id = ? AND we.name = ?
-       ORDER BY w.workout_date ASC, w.created_at ASC
+       LEFT JOIN exercise_catalog ec ON ec.id = we.exercise_id
+       WHERE w.user_id = ? AND COALESCE(ec.name, we.name) = ?
+       ORDER BY w.workout_date DESC, w.created_at DESC
        LIMIT ?`,
       [userId, exerciseName, limit],
     );
-    return rows.map((row) => ({
+    return rows.reverse().map((row) => ({
       workoutDate: row.workout_date as string,
       sourceRoutineId: row.source_routine_id as string | null,
       weight: row.weight === null ? null : Number(row.weight),
@@ -200,7 +208,8 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
     if (rows.length === 0) return [];
     const workoutIds = rows.map((row) => row.id);
     const [exerciseRows] = await this.pool.query<WorkoutExerciseRow[]>(
-      `SELECT id, workout_id, name, weight, is_bodyweight, sets, reps, sort_order FROM workout_exercises
+      `SELECT we.id, we.workout_id, COALESCE(ec.name, we.name) AS name, we.exercise_id, we.weight, we.is_bodyweight, we.sets, we.reps, we.sort_order FROM workout_exercises we
+       LEFT JOIN exercise_catalog ec ON ec.id = we.exercise_id
        WHERE workout_id IN (?)
        ORDER BY workout_id, sort_order ASC`,
       [workoutIds],
@@ -213,6 +222,7 @@ export class MysqlWorkoutRepository implements WorkoutRepository {
           id: row.id,
           workoutId: row.workout_id,
           name: row.name,
+          exerciseId: row.exercise_id,
           weight: row.weight === null ? null : Number(row.weight),
           isBodyweight: Boolean(row.is_bodyweight),
           sets: row.sets,

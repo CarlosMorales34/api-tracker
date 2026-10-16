@@ -2,6 +2,7 @@ export interface AnalyticsRoutineTimeEntry {
   routineId: string;
   routineName: string;
   isSleep: boolean;
+  hasAcceptedSuggestion?: boolean;
   logDate: string;
   startTime: string;
   endTime: string;

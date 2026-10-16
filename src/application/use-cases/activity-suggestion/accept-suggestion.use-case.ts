@@ -71,7 +71,10 @@ export class AcceptSuggestionUseCase {
     const finalValues = input.finalValues;
     const hasChanges =
       finalValues !== undefined &&
-      Object.keys(finalValues).some((key) => valuesDiffer(finalValues[key], originalValues[key]));
+      Object.keys(finalValues).some((key) =>
+        (Object.prototype.hasOwnProperty.call(originalValues, key) || key === 'routineName') &&
+        valuesDiffer(finalValues[key], originalValues[key]),
+      );
 
     if (hasChanges) {
       suggestion.markAcceptedWithChanges();
@@ -92,7 +95,7 @@ export class AcceptSuggestionUseCase {
       userId,
       action: hasChanges ? 'accepted_with_changes' : 'accepted',
       originalValues,
-      finalValues: hasChanges ? finalValues! : null,
+      finalValues: finalValues ?? null,
       createdAt: new Date(),
     });
   }

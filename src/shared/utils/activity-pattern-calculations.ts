@@ -112,7 +112,7 @@ export function detectWeekdayFrequency(samples: ManualTimeSample[], lookbackWeek
 // (ver unwrapAroundReference). Un promedio lineal normal de, por ejemplo,
 // 23:50 y 00:10 daría ~12:00 (mediodía), que es exactamente lo opuesto de lo
 // correcto (~00:00) -- por eso no se puede usar `median()` directo acá.
-function circularMeanMinutes(values: number[]): number {
+export function circularMeanMinutes(values: number[]): number {
   const radiansPerMinute = (2 * Math.PI) / 1440;
   const sumSin = values.reduce((sum, value) => sum + Math.sin(value * radiansPerMinute), 0);
   const sumCos = values.reduce((sum, value) => sum + Math.cos(value * radiansPerMinute), 0);
@@ -125,7 +125,7 @@ function circularMeanMinutes(values: number[]): number {
 // la recta numérica, permitiendo que un valor "cruce" a >1440 o <0 -- ej.
 // unwrapAroundReference(0, 1400) = 1440 (medianoche expresada como "un
 // poco después" de 23:20, no como "muy lejos, casi al otro lado del día").
-function unwrapAroundReference(minutes: number, reference: number): number {
+export function unwrapAroundReference(minutes: number, reference: number): number {
   const wrapped = (((minutes - reference + 720) % 1440) + 1440) % 1440;
   return reference + wrapped - 720;
 }

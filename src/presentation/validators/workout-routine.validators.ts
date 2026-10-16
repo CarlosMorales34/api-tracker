@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const workoutRoutineExerciseSchema = z.object({
+  exerciseId: z.string().uuid().nullable().optional(),
   name: z.string().max(255),
   targetSets: z.number().int().min(1).max(50),
   targetReps: z.number().int().min(1).max(100),
@@ -13,6 +14,7 @@ export const createWorkoutRoutineSchema = z.object({
   // 0=domingo..6=sábado (Date#getDay()) -- null = sin asociar a un día en
   // particular, la rutina sigue disponible en el selector manual.
   weekday: z.number().int().min(0).max(6).nullable(),
+  weekdays: z.array(z.number().int().min(0).max(6)).max(7).transform((days) => [...new Set(days)].sort((a,b) => a-b)).optional(),
   exercises: z.array(workoutRoutineExerciseSchema).min(1).max(30),
 });
 

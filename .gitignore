@@ -12,6 +12,10 @@ credentials.json
 .DS_Store
 .arch-index/
 *.sql
+!sql/038_exercise_catalog_and_routine_days.sql
+!sql/prod_20261016_preflight.sql
+!sql/prod_20261016_verify.sql
+!src/infrastructure/database/mysql/migrations/038_exercise_catalog_and_routine_days.sql
 *trace
 *trace-build
 *vscode

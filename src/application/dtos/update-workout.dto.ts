@@ -1,4 +1,5 @@
 export interface UpdateWorkoutExerciseDto {
+  exerciseId?: string | null;
   name: string;
   weight: number | null;
   isBodyweight?: boolean;

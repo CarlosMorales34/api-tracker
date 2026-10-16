@@ -6,6 +6,10 @@ describe('analytics-calculations', () => {
     expect(durationHours('00:00', '06:00')).toBe(6);
   });
 
+  it('does not turn identical times into a 24-hour block', () => {
+    expect(durationHours('00:00', '00:00', { allowCrossMidnight: true })).toBe(0);
+  });
+
   it('calculates ordinary same-day ranges', () => {
     expect(durationHours('09:30', '15:00')).toBe(5.5);
   });

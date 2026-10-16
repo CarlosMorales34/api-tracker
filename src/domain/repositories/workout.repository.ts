@@ -1,6 +1,7 @@
 import { Workout } from '../entities/workout.entity';
 
 export interface CreateWorkoutExerciseInput {
+  exerciseId?: string | null;
   name: string;
   weight: number | null;
   isBodyweight: boolean;

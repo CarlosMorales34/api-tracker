@@ -15,6 +15,7 @@ interface RoutineTimeRow extends RowDataPacket {
   routine_id: string;
   routine_name: string;
   is_sleep: number;
+  has_accepted_suggestion: number;
   log_date: string | Date;
   start_time: string;
   end_time: string;
@@ -89,6 +90,12 @@ const timeDurationSql = `
   END
 `;
 
+// Old logs may contain a manual duration without any clock intervals.
+const effectiveActivityHoursSql = `COALESCE(
+  (SELECT SUM(${timeDurationSql}) FROM activity_log_times alt WHERE alt.activity_log_id = al.id),
+  al.hours, 0
+)`;
+
 interface BodyMeasurementRow extends RowDataPacket {
   measured_at: string | Date;
   weight_kg: number | string | null;
@@ -124,7 +131,14 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
   async findRoutineTimes(userId: string, from: string, to: string): Promise<AnalyticsRoutineTimeEntry[]> {
     const [rows] = await this.pool.query<RoutineTimeRow[]>(
       `SELECT fr.id AS routine_id, fr.name AS routine_name, fr.is_sleep,
-              rl.log_date, rlt.start_time, rlt.end_time
+              rl.log_date, rlt.start_time, rlt.end_time,
+              EXISTS (
+                SELECT 1 FROM suggestion_feedback sf
+                JOIN activity_suggestions sug ON sug.id = sf.suggestion_id
+                WHERE sf.user_id = fr.user_id AND sug.routine_id = fr.id
+                  AND sf.action IN ('accepted', 'accepted_with_changes')
+                  AND JSON_UNQUOTE(JSON_EXTRACT(sf.final_values, '$.logDate')) = DATE_FORMAT(rl.log_date, '%Y-%m-%d')
+              ) AS has_accepted_suggestion
        FROM routine_log_times rlt
        JOIN routine_logs rl ON rl.id = rlt.routine_log_id
        JOIN fixed_routines fr ON fr.id = rl.routine_id
@@ -137,6 +151,7 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
       routineId: row.routine_id,
       routineName: row.routine_name,
       isSleep: Boolean(row.is_sleep),
+      hasAcceptedSuggestion: Boolean(row.has_accepted_suggestion),
       logDate: dateOnly(row.log_date)!,
       startTime: row.start_time.slice(0, 5),
       endTime: row.end_time.slice(0, 5),
@@ -177,8 +192,8 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
   async findCategoryTotals(userId: string, from: string, to: string): Promise<AnalyticsCategoryTotal[]> {
     const [rows] = await this.pool.query<CategoryTotalRow[]>(
       `SELECT ac.id AS category_id, ac.name AS category_name, ac.color AS category_color,
-              ROUND(COALESCE(SUM(al.hours), 0), 2) AS total_hours,
-              COUNT(DISTINCT al.log_date) AS active_days
+              ROUND(COALESCE(SUM(${effectiveActivityHoursSql}), 0), 2) AS total_hours,
+              COUNT(DISTINCT CASE WHEN ${effectiveActivityHoursSql} > 0 THEN al.log_date END) AS active_days
        FROM activity_categories ac
        LEFT JOIN activities a ON a.category_id = ac.id
        LEFT JOIN activity_logs al ON al.activity_id = a.id AND al.log_date BETWEEN ? AND ?
@@ -200,8 +215,8 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
   async findActivityTotals(userId: string, from: string, to: string): Promise<AnalyticsActivityTotal[]> {
     const [rows] = await this.pool.query<ActivityTotalRow[]>(
       `SELECT ac.id AS category_id, ac.name AS category_name, a.id AS activity_id, a.name AS activity_name,
-              ROUND(COALESCE(SUM(al.hours), 0), 2) AS total_hours,
-              COUNT(DISTINCT al.log_date) AS active_days
+              ROUND(COALESCE(SUM(${effectiveActivityHoursSql}), 0), 2) AS total_hours,
+              COUNT(DISTINCT CASE WHEN ${effectiveActivityHoursSql} > 0 THEN al.log_date END) AS active_days
        FROM activities a
        JOIN activity_categories ac ON ac.id = a.category_id
        LEFT JOIN activity_logs al ON al.activity_id = a.id AND al.log_date BETWEEN ? AND ?
@@ -233,8 +248,8 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
     if (workoutRows.length === 0) return [];
 
     const [exerciseRows] = await this.pool.query<WorkoutExerciseRow[]>(
-      `SELECT workout_id, name, weight, sets, reps
-       FROM workout_exercises
+      `SELECT we.workout_id, COALESCE(ec.name, we.name) AS name, we.weight, we.sets, we.reps
+       FROM workout_exercises we LEFT JOIN exercise_catalog ec ON ec.id = we.exercise_id
        WHERE workout_id IN (?)
        ORDER BY workout_id, sort_order ASC`,
       [workoutRows.map((row) => row.workout_id)],
@@ -269,9 +284,10 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
 
   async findExerciseTotals(userId: string, from: string, to: string): Promise<AnalyticsExerciseTotal[]> {
     const [rows] = await this.pool.query<ExerciseTotalRow[]>(
-      `SELECT w.id AS workout_id, w.workout_date, we.name AS exercise_name, we.weight, we.reps
+      `SELECT w.id AS workout_id, w.workout_date, COALESCE(ec.name, we.name) AS exercise_name, we.weight, we.reps
        FROM workout_exercises we
        JOIN workouts w ON w.id = we.workout_id
+       LEFT JOIN exercise_catalog ec ON ec.id = we.exercise_id
        WHERE w.user_id = ? AND w.workout_date BETWEEN ? AND ?
        ORDER BY w.workout_date ASC, we.sort_order ASC`,
       [userId, from, to],
@@ -329,9 +345,16 @@ export class MysqlPersonalAnalyticsRepository implements PersonalAnalyticsReposi
     const [rows] = await this.pool.query<BodyMeasurementRow[]>(
       `SELECT measured_at, weight_kg, body_fat_percentage, waist_cm
        FROM body_measurements
-       WHERE user_id = ? AND measured_at >= ? AND measured_at < DATE_ADD(?, INTERVAL 1 DAY)
+       WHERE user_id = ? AND measured_at < DATE_ADD(?, INTERVAL 1 DAY)
+         AND (measured_at >= ? OR id IN (
+           SELECT id FROM (
+             SELECT id FROM body_measurements
+             WHERE user_id = ? AND weight_kg IS NOT NULL AND measured_at < ?
+             ORDER BY measured_at DESC LIMIT 2
+           ) previous_weights
+         ))
        ORDER BY measured_at ASC`,
-      [userId, from, to],
+      [userId, to, from, userId, from],
     );
 
     return rows.map((row) => ({

@@ -23,6 +23,9 @@ import { CreditCardController } from '../../../presentation/controllers/credit-c
 import { WeightController } from '../../../presentation/controllers/weight.controller';
 import { WorkoutController } from '../../../presentation/controllers/workout.controller';
 import { WorkoutRoutineController } from '../../../presentation/controllers/workout-routine.controller';
+import { ExerciseCatalogController } from '../../../presentation/controllers/exercise-catalog.controller';
+import { ManageExerciseCatalogUseCase } from '../../../application/use-cases/workout/manage-exercise-catalog.use-case';
+import { MysqlExerciseCatalogRepository } from '../../database/mysql/repositories/mysql-exercise-catalog.repository';
 import { WeeklyLogController } from '../../../presentation/controllers/weekly-log.controller';
 import { HomeController } from '../../../presentation/controllers/home.controller';
 import { AnalyticsController } from '../../../presentation/controllers/analytics.controller';
@@ -538,6 +541,7 @@ export function createServer(pool: Pool): Express {
     listWorkoutRoutinesUseCase,
     deleteWorkoutRoutineUseCase,
   );
+  const exerciseCatalogController = new ExerciseCatalogController(new ManageExerciseCatalogUseCase(new MysqlExerciseCatalogRepository(pool)));
 
   // --- Cross-cutting middlewares ---
   const authenticateMiddleware = authenticate(tokenService);
@@ -587,6 +591,7 @@ export function createServer(pool: Pool): Express {
       creditCardController,
       workoutController,
       workoutRoutineController,
+      exerciseCatalogController,
       authenticateMiddleware,
       idempotencyRepository,
     }),

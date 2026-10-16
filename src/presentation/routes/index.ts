@@ -15,6 +15,8 @@ import { AnalyticsController } from '../controllers/analytics.controller';
 import { CreditCardController } from '../controllers/credit-card.controller';
 import { WorkoutController } from '../controllers/workout.controller';
 import { WorkoutRoutineController } from '../controllers/workout-routine.controller';
+import { ExerciseCatalogController } from '../controllers/exercise-catalog.controller';
+import { exerciseCatalogRoutes } from './exercise-catalog.routes';
 import { UserController } from '../controllers/user.controller';
 import { BodyProgressController } from '../controllers/body-progress.controller';
 import { ActivitySuggestionController } from '../controllers/activity-suggestion.controller';
@@ -60,6 +62,7 @@ export interface ApiRoutesDeps {
   creditCardController: CreditCardController;
   workoutController: WorkoutController;
   workoutRoutineController: WorkoutRoutineController;
+  exerciseCatalogController: ExerciseCatalogController;
   authenticateMiddleware: RequestHandler;
   idempotencyRepository: IdempotencyRepository;
 }
@@ -120,6 +123,7 @@ export function apiRoutes(deps: ApiRoutesDeps): Router {
   );
   router.use('/workouts', workoutRoutes(deps.workoutController, deps.authenticateMiddleware));
   router.use('/workout-routines', workoutRoutineRoutes(deps.workoutRoutineController, deps.authenticateMiddleware));
+  router.use('/exercise-catalog', exerciseCatalogRoutes(deps.exerciseCatalogController, deps.authenticateMiddleware));
 
   return router;
 }

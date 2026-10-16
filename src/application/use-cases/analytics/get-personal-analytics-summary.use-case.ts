@@ -8,7 +8,10 @@ import {
   parseTimeToMinutes,
   percent,
   round2,
+  intervalUnionHours,
+  principalSleepEntries,
 } from '../../../shared/utils/analytics-calculations';
+import { circularMeanMinutes, unwrapAroundReference } from '../../../shared/utils/activity-pattern-calculations';
 import { addDaysUTC, formatDateOnly, parseDateOnly, todayDateOnly } from '../../../shared/utils/week';
 
 type Severity = 'info' | 'warning' | 'positive';
@@ -34,6 +37,8 @@ export interface PersonalAnalyticsSummary {
     medianHours: number | null;
     bedtimeDispersionMinutes: number | null;
     shortSleepDays: number;
+    secondaryHours: number;
+    secondarySamples: number;
     weekdayAverages: { weekday: number; averageHours: number; samples: number }[];
   };
   work: {
@@ -45,6 +50,10 @@ export interface PersonalAnalyticsSummary {
     medianEndTime: string | null;
     averageBlockHours: number | null;
     mostFrequentStartBucket: string | null;
+    averageDayHours: number | null;
+    multiBlockDays: number;
+    weekendDays: number;
+    blocks: { period: 'morning' | 'afternoon' | 'night'; samples: number; startTime: string; endTime: string }[];
     weekdayAverages: { weekday: number; averageHours: number; samples: number }[];
   };
   activities: {
@@ -86,6 +95,8 @@ export interface PersonalAnalyticsSummary {
     totalHours: number;
     averageMinutes: number | null;
     sessionsPerWeek: number;
+    activeDays: number;
+    weeklyDays: { week: string; days: number; complete: boolean }[];
     lastWorkoutDate: string | null;
     weekdayCounts: { weekday: number; sessions: number; averageMinutes: number }[];
     topExercises: {
@@ -108,17 +119,27 @@ export interface PersonalAnalyticsSummary {
     distanceToTargetKg: number | null;
     trendVsGoal: 'favorable' | 'unfavorable' | 'neutral' | null;
     latestMeasurementAt: string | null;
+    measurementCount: number;
+    measurementAgeDays: number | null;
   };
   timeline: {
     date: string;
-    sleepHours: number;
-    workHours: number;
-    activityHours: number;
-    workoutMinutes: number;
+    sleepHours: number | null;
+    workHours: number | null;
+    activityHours: number | null;
+    workoutMinutes: number | null;
     weightKg: number | null;
   }[];
   dataQuality: {
     warnings: AnalyticsInsight[];
+  };
+  comparison: {
+    from: string;
+    to: string;
+    sleepDays: number;
+    sleepAverageHours: number | null;
+    sleepChangeHours: number | null;
+    bedtimeDispersionChangeMinutes: number | null;
   };
   insights: AnalyticsInsight[];
 }
@@ -131,6 +152,8 @@ export class GetPersonalAnalyticsSummaryUseCase {
     const to = input.to ?? today;
     const from = input.from ?? formatDateOnly(addDaysUTC(parseDateOnly(to), -89));
     const days = Math.max(1, Math.round((parseDateOnly(to).getTime() - parseDateOnly(from).getTime()) / 86400000) + 1);
+    const previousTo = formatDateOnly(addDaysUTC(parseDateOnly(from), -1));
+    const previousFrom = formatDateOnly(addDaysUTC(parseDateOnly(from), -days));
 
     const [
       routineTimes,
@@ -141,6 +164,7 @@ export class GetPersonalAnalyticsSummaryUseCase {
       exerciseTotals,
       bodyMeasurements,
       bodyGoal,
+      previousRoutineTimes,
     ] =
       await Promise.all([
         this.analyticsRepository.findRoutineTimes(userId, from, to),
@@ -151,14 +175,20 @@ export class GetPersonalAnalyticsSummaryUseCase {
         this.analyticsRepository.findExerciseTotals(userId, from, to),
         this.analyticsRepository.findBodyMeasurements(userId, from, to),
         this.analyticsRepository.findActiveBodyGoal(userId),
+        this.analyticsRepository.findRoutineTimes(userId, previousFrom, previousTo),
       ]);
 
-    const dataQualityWarnings: AnalyticsInsight[] = [];
+    const dataQualityWarnings = buildDataQualityWarnings(activityTimes, categoryTotals, workoutSessions);
+    const suggestedDates = new Set(routineTimes.filter((entry) => entry.hasAcceptedSuggestion).map((entry) => entry.logDate)).size;
+    if (suggestedDates) dataQualityWarnings.push({ id: 'suggestion-confirmations', area: 'data-quality', severity: 'info',
+      title: `${suggestedDates} fechas con sugerencias aceptadas`,
+      detail: 'Los horarios registrados pueden incluir propuestas confirmadas. Aceptar una propuesta no verifica su realizacion ni aporta evidencia independiente de su precision.' });
     const sleep = buildSleepSummary(routineTimes);
+    const previousSleep = buildSleepSummary(previousRoutineTimes);
     const work = buildWorkSummary(routineTimes, activityTimes);
     const activities = buildActivitiesSummary(categoryTotals, activityTotals);
-    const training = buildTrainingSummary(workoutSessions, exerciseTotals, days);
-    const body = buildBodySummary(bodyMeasurements, bodyGoal);
+    const training = buildTrainingSummary(workoutSessions, exerciseTotals, days, from, to);
+    const body = buildBodySummary(bodyMeasurements, bodyGoal, from, to);
     const timeline = buildTimeline(from, to, routineTimes, activityTimes, workoutSessions, bodyMeasurements);
     const insights = [
       ...dataQualityWarnings,
@@ -178,6 +208,16 @@ export class GetPersonalAnalyticsSummaryUseCase {
       body,
       timeline,
       dataQuality: { warnings: dataQualityWarnings },
+      comparison: {
+        from: previousFrom,
+        to: previousTo,
+        sleepDays: previousSleep.days,
+        sleepAverageHours: previousSleep.averageHours,
+        sleepChangeHours: sleep.days >= 7 && previousSleep.days >= 7 && sleep.averageHours !== null && previousSleep.averageHours !== null
+          ? round2(sleep.averageHours - previousSleep.averageHours) : null,
+        bedtimeDispersionChangeMinutes: sleep.days >= 7 && previousSleep.days >= 7 && sleep.bedtimeDispersionMinutes !== null && previousSleep.bedtimeDispersionMinutes !== null
+          ? sleep.bedtimeDispersionMinutes - previousSleep.bedtimeDispersionMinutes : null,
+      },
       insights,
     };
   }
@@ -202,12 +242,15 @@ function weekdayOf(dateOnly: string): number {
 }
 
 function buildSleepSummary(routineTimes: Awaited<ReturnType<PersonalAnalyticsRepository['findRoutineTimes']>>) {
-  const samples = routineTimes.filter((entry) => entry.isSleep);
+  const allSamples = routineTimes.filter((entry) => entry.isSleep && durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }) > 0);
+  // Existing logs have no sleep-kind flag. Use the longest block per recorded date.
+  const samples = principalSleepEntries(allSamples);
+  const principalSet = new Set(samples);
   const durations = samples.map((entry) => durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }));
   const starts = samples.map((entry) => parseTimeToMinutes(entry.startTime));
   const ends = samples.map((entry) => parseTimeToMinutes(entry.endTime));
-  const medianStart = median(starts);
-  const medianEnd = median(ends);
+  const medianStart = starts.length ? median(starts.map((start) => unwrapAroundReference(start, circularMeanMinutes(starts)))) : null;
+  const medianEnd = ends.length ? median(ends.map((end) => unwrapAroundReference(end, circularMeanMinutes(ends)))) : null;
 
   return {
     hasData: samples.length > 0,
@@ -222,6 +265,9 @@ function buildSleepSummary(routineTimes: Awaited<ReturnType<PersonalAnalyticsRep
         ? null
         : Math.round(averageClockDeviation(starts, medianStart)!),
     shortSleepDays: durations.filter((hours) => hours > 0 && hours < 7).length,
+    secondaryHours: round2(allSamples.filter((sample) => !principalSet.has(sample)).reduce((sum, sample) =>
+      sum + durationHours(sample.startTime, sample.endTime, { allowCrossMidnight: true }), 0)),
+    secondarySamples: allSamples.length - samples.length,
     weekdayAverages: weekdayAverages(samples.map((entry) => ({ weekday: weekdayOf(entry.logDate), value: durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }) }))),
   };
 }
@@ -237,36 +283,29 @@ function buildTimeline(
   const byDate = new Map<string, PersonalAnalyticsSummary['timeline'][number]>();
   for (let cursor = parseDateOnly(from); formatDateOnly(cursor) <= to; cursor = addDaysUTC(cursor, 1)) {
     const date = formatDateOnly(cursor);
-    byDate.set(date, { date, sleepHours: 0, workHours: 0, activityHours: 0, workoutMinutes: 0, weightKg: null });
+    byDate.set(date, { date, sleepHours: null, workHours: null, activityHours: null, workoutMinutes: null, weightKg: null });
   }
 
-  for (const entry of routineTimes) {
+  for (const entry of principalSleepEntries(routineTimes.filter((sample) => sample.isSleep))) {
     const row = byDate.get(entry.logDate);
     if (!row) continue;
-    const hours = durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true });
-    if (entry.isSleep) row.sleepHours = round2(row.sleepHours + hours);
-    else if (looksLikeWork(entry.routineName)) row.workHours = round2(row.workHours + hours);
+    row.sleepHours = durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true });
   }
 
-  const routineWorkKeys = new Set(
-    routineTimes
-      .filter((entry) => !entry.isSleep && looksLikeWork(entry.routineName))
-      .map((entry) => timeSampleKey(entry.logDate, entry.startTime, entry.endTime)),
-  );
-  for (const entry of activityTimes) {
-    const row = byDate.get(entry.logDate);
-    if (!row) continue;
-    const hours = durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true });
-    row.activityHours = round2(row.activityHours + hours);
-    if (looksLikeProgramming(entry.activityName) && !routineWorkKeys.has(timeSampleKey(entry.logDate, entry.startTime, entry.endTime))) {
-      row.workHours = round2(row.workHours + hours);
-    }
+  const activitiesByDate = groupByDate(activityTimes);
+  for (const [date, entries] of activitiesByDate) {
+    const row = byDate.get(date);
+    if (row) row.activityHours = intervalUnionHours(entries);
+  }
+  for (const [date, entries] of groupByDate(collectWorkSamples(routineTimes, activityTimes))) {
+    const row = byDate.get(date);
+    if (row) row.workHours = intervalUnionHours(entries);
   }
 
   for (const workout of workouts) {
     const row = byDate.get(workout.workoutDate);
     if (!row) continue;
-    row.workoutMinutes = round2(row.workoutMinutes + workout.durationMinutes);
+    if (workout.durationMinutes > 0) row.workoutMinutes = round2((row.workoutMinutes ?? 0) + workout.durationMinutes);
   }
 
   for (const measurement of measurements) {
@@ -280,6 +319,62 @@ function buildTimeline(
 }
 
 function buildWorkSummary(
+  routineTimes: Awaited<ReturnType<PersonalAnalyticsRepository['findRoutineTimes']>>,
+  activityTimes: Awaited<ReturnType<PersonalAnalyticsRepository['findActivityTimes']>>,
+) {
+  const samples = collectWorkSamples(routineTimes, activityTimes);
+  const dailySamples = [...groupByDate(samples).values()];
+  const dailyHours = dailySamples.map(intervalUnionHours);
+  const firstStarts = dailySamples.map((entries) => Math.min(...entries.map((entry) => parseTimeToMinutes(entry.startTime))));
+  const lastEnds = dailySamples.map((entries) => Math.max(...entries.map((entry) => {
+    const start = parseTimeToMinutes(entry.startTime);
+    const end = parseTimeToMinutes(entry.endTime);
+    return end < start ? end + 1440 : end;
+  })));
+  const periods = ['morning', 'afternoon', 'night'] as const;
+  const blocks = periods.flatMap((period) => {
+    const entries = samples.filter((entry) => {
+      const start = parseTimeToMinutes(entry.startTime);
+      return period === 'morning' ? start < 720 : period === 'afternoon' ? start >= 720 && start < 1200 : start >= 1200;
+    });
+    if (!entries.length) return [];
+    return [{ period, samples: entries.length, startTime: formatMinutesAsTime(median(entries.map((e) => parseTimeToMinutes(e.startTime)))!),
+      endTime: formatMinutesAsTime(median(entries.map((e) => parseTimeToMinutes(e.endTime)))!) }];
+  });
+  const durations = samples.map((entry) => durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }));
+  const buckets = new Map<string, number>();
+  for (const start of firstStarts) {
+    const bucket = formatMinutesAsTime(Math.floor(start / 30) * 30);
+    buckets.set(bucket, (buckets.get(bucket) ?? 0) + 1);
+  }
+  return {
+    hasData: samples.length > 0,
+    days: dailySamples.length,
+    samples: samples.length,
+    totalHours: round2(dailyHours.reduce((sum, value) => sum + value, 0)),
+    medianStartTime: firstStarts.length ? formatMinutesAsTime(median(firstStarts)!) : null,
+    medianEndTime: lastEnds.length ? formatMinutesAsTime(median(lastEnds)!) : null,
+    averageBlockHours: durations.length ? round2(average(durations)!) : null,
+    averageDayHours: dailyHours.length ? round2(average(dailyHours)!) : null,
+    multiBlockDays: dailySamples.filter((entries) => entries.length > 1).length,
+    weekendDays: [...groupByDate(samples).keys()].filter((date) => [0, 6].includes(weekdayOf(date))).length,
+    blocks,
+    mostFrequentStartBucket: [...buckets.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null,
+    weekdayAverages: weekdayAverages(dailySamples.map((entries) => ({ weekday: weekdayOf(entries[0]!.logDate), value: intervalUnionHours(entries) }))),
+  };
+}
+
+function groupByDate<T extends { logDate: string }>(entries: T[]): Map<string, T[]> {
+  const result = new Map<string, T[]>();
+  for (const entry of entries) {
+    const list = result.get(entry.logDate) ?? [];
+    list.push(entry);
+    result.set(entry.logDate, list);
+  }
+  return result;
+}
+
+function collectWorkSamples(
   routineTimes: Awaited<ReturnType<PersonalAnalyticsRepository['findRoutineTimes']>>,
   activityTimes: Awaited<ReturnType<PersonalAnalyticsRepository['findActivityTimes']>>,
 ) {
@@ -301,29 +396,7 @@ function buildWorkSummary(
   for (const sample of [...routineSamples, ...programmingSamples]) {
     samplesByTime.set(timeSampleKey(sample.logDate, sample.startTime, sample.endTime), sample);
   }
-  const samples = [...samplesByTime.values()];
-  const durations = samples.map((entry) => durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }));
-  const starts = samples.map((entry) => parseTimeToMinutes(entry.startTime));
-  const medianStart = median(starts);
-  const medianDuration = median(durations);
-  const buckets = new Map<string, number>();
-  for (const entry of samples) {
-    const bucket = formatMinutesAsTime(Math.floor(parseTimeToMinutes(entry.startTime) / 30) * 30);
-    buckets.set(bucket, (buckets.get(bucket) ?? 0) + 1);
-  }
-  const mostFrequentStartBucket = [...buckets.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-
-  return {
-    hasData: samples.length > 0,
-    days: new Set(samples.map((entry) => entry.logDate)).size,
-    samples: samples.length,
-    totalHours: round2(durations.reduce((sum, duration) => sum + duration, 0)),
-    medianStartTime: medianStart === null ? null : formatMinutesAsTime(medianStart),
-    medianEndTime: medianStart === null || medianDuration === null ? null : formatMinutesAsTime(medianStart + medianDuration * 60),
-    averageBlockHours: average(durations) === null ? null : round2(average(durations)!),
-    mostFrequentStartBucket,
-    weekdayAverages: weekdayAverages(samples.map((entry) => ({ weekday: weekdayOf(entry.logDate), value: durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }) }))),
-  };
+  return [...samplesByTime.values()].filter((entry) => durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }) > 0);
 }
 
 function timeSampleKey(logDate: string, startTime: string, endTime: string): string {
@@ -400,7 +473,7 @@ function buildActivitiesSummary(
 }
 
 function hasEnoughActivityData(totalHours: number, activeDays: number): boolean {
-  return totalHours >= 3 || activeDays >= 3;
+  return totalHours > 0 && activeDays >= 7;
 }
 
 function insufficientActivityMessage(totalHours: number, activeDays: number): string {
@@ -412,8 +485,16 @@ function buildTrainingSummary(
   workoutSessions: Awaited<ReturnType<PersonalAnalyticsRepository['findWorkoutSessions']>>,
   exerciseTotals: Awaited<ReturnType<PersonalAnalyticsRepository['findExerciseTotals']>>,
   days: number,
+  from: string,
+  to: string,
 ) {
-  const durations = workoutSessions.map((session) => session.durationMinutes);
+  const durations = workoutSessions.filter((session) => session.durationMinutes > 0).map((session) => session.durationMinutes);
+  const activeDates = new Set(workoutSessions.map((session) => session.workoutDate));
+  const weeklyDays = new Map<string, number>();
+  for (let cursor = parseDateOnly(from); formatDateOnly(cursor) <= to; cursor = addDaysUTC(cursor, 1)) {
+    const week = formatDateOnly(addDaysUTC(cursor, -((cursor.getUTCDay() + 6) % 7)));
+    weeklyDays.set(week, (weeklyDays.get(week) ?? 0) + (activeDates.has(formatDateOnly(cursor)) ? 1 : 0));
+  }
   const byWeekday = new Map<number, typeof workoutSessions>();
   for (const session of workoutSessions) {
     const weekday = weekdayOf(session.workoutDate);
@@ -426,13 +507,16 @@ function buildTrainingSummary(
     sessions: workoutSessions.length,
     totalHours: round2(workoutSessions.reduce((sum, session) => sum + session.durationMinutes / 60, 0)),
     averageMinutes: average(durations) === null ? null : Math.round(average(durations)!),
-    sessionsPerWeek: round2(workoutSessions.length / Math.max(days / 7, 1)),
+    sessionsPerWeek: round2(activeDates.size / Math.max(days / 7, 1)),
+    activeDays: activeDates.size,
+    weeklyDays: [...weeklyDays.entries()].map(([week, activeDays]) => ({ week, days: activeDays,
+      complete: week >= from && formatDateOnly(addDaysUTC(parseDateOnly(week), 6)) <= to })),
     lastWorkoutDate: workoutSessions.at(-1)?.workoutDate ?? null,
     weekdayCounts: [...byWeekday.entries()]
       .map(([weekday, sessions]) => ({
         weekday,
-        sessions: sessions.length,
-        averageMinutes: Math.round(average(sessions.map((session) => session.durationMinutes)) ?? 0),
+        sessions: new Set(sessions.map((session) => session.workoutDate)).size,
+        averageMinutes: Math.round(average(sessions.filter((session) => session.durationMinutes > 0).map((session) => session.durationMinutes)) ?? 0),
       }))
       .sort((a, b) => b.sessions - a.sessions),
     topExercises: exerciseTotals.map((exercise) => ({
@@ -450,18 +534,14 @@ function buildTrainingSummary(
 function buildBodySummary(
   measurements: Awaited<ReturnType<PersonalAnalyticsRepository['findBodyMeasurements']>>,
   goal: Awaited<ReturnType<PersonalAnalyticsRepository['findActiveBodyGoal']>>,
+  from: string,
+  to: string,
 ) {
   const weightPoints = measurements.filter((measurement) => measurement.weightKg !== null);
   const latest = weightPoints.at(-1) ?? null;
   const previous = weightPoints.at(-2) ?? null;
   const delta = latest && previous ? round2(latest.weightKg! - previous.weightKg!) : null;
   const distance = latest && goal?.targetWeightKg !== null && goal?.targetWeightKg !== undefined ? round2(goal.targetWeightKg - latest.weightKg!) : null;
-  const trendVsGoal: PersonalAnalyticsSummary['body']['trendVsGoal'] = (() => {
-    if (!goal || delta === null || delta === 0) return delta === 0 ? 'neutral' : null;
-    if (goal.goalType === 'gain') return delta > 0 ? 'favorable' : 'unfavorable';
-    if (goal.goalType === 'lose') return delta < 0 ? 'favorable' : 'unfavorable';
-    return 'neutral';
-  })();
 
   return {
     hasData: latest !== null,
@@ -471,8 +551,11 @@ function buildBodySummary(
     goalType: goal?.goalType ?? null,
     targetWeightKg: goal?.targetWeightKg ?? null,
     distanceToTargetKg: distance,
-    trendVsGoal,
+    // Two isolated weigh-ins are a change, not evidence of a sustained trend.
+    trendVsGoal: null,
     latestMeasurementAt: latest?.measuredAt ?? null,
+    measurementCount: weightPoints.filter((point) => point.measuredAt.slice(0, 10) >= from).length,
+    measurementAgeDays: latest ? Math.max(0, Math.round((parseDateOnly(to).getTime() - parseDateOnly(latest.measuredAt.slice(0, 10)).getTime()) / 86400000)) : null,
   };
 }
 
@@ -483,22 +566,22 @@ function buildSleepInsights(summary: PersonalAnalyticsSummary['sleep']): Analyti
     insights.push({
       id: 'sleep-duration',
       area: 'sleep',
-      severity: summary.medianHours >= 7 && summary.medianHours <= 9 ? 'positive' : 'warning',
-      title: `Sueño mediano de ${summary.medianHours}h`,
+      severity: 'info',
+      title: `Bloque principal: ${summary.averageHours}h de promedio`,
       detail:
         summary.medianBedtime && summary.medianWakeTime
-          ? `Tu bloque típico va de ${summary.medianBedtime} a ${summary.medianWakeTime}.`
+          ? `${summary.days} fechas registradas. Medianas de inicio ${summary.medianBedtime} y fin ${summary.medianWakeTime}; ${summary.secondarySamples} bloques secundarios separados. Se considera principal el bloque mas largo de cada fecha.`
           : 'Ya hay suficientes registros para seguir tendencia de descanso.',
       metric: `${summary.medianHours}h`,
     });
   }
   const weakestDay = [...summary.weekdayAverages].sort((a, b) => a.averageHours - b.averageHours)[0];
-  if (weakestDay && weakestDay.averageHours < 7) {
+  if (weakestDay && weakestDay.samples >= 4 && weakestDay.averageHours < 7) {
     insights.push({
       id: 'sleep-weak-weekday',
       area: 'sleep',
       severity: 'warning',
-      title: 'Hay un dia de sueño bajo recurrente',
+      title: 'Menor duracion registrada por dia de la semana',
       detail: `El dia ${weekdayLabel(weakestDay.weekday)} promedia ${weakestDay.averageHours}h en ${weakestDay.samples} registros.`,
     });
   }
@@ -512,10 +595,10 @@ function buildWorkInsights(summary: PersonalAnalyticsSummary['work']): Analytics
       id: 'work-main-block',
       area: 'work',
       severity: 'info',
-      title: 'Bloque principal de trabajo detectado',
+      title: `${summary.multiBlockDays} de ${summary.days} dias tienen varios bloques`,
       detail:
         summary.medianStartTime && summary.medianEndTime
-          ? `Tu bloque mediano va de ${summary.medianStartTime} a ${summary.medianEndTime}; el inicio mas frecuente cae cerca de ${summary.mostFrequentStartBucket}.`
+          ? `Mediana del primer inicio: ${summary.medianStartTime}; del ultimo fin: ${summary.medianEndTime}, con pausas. Promedio ${summary.averageDayHours}h por dia registrado; ${summary.weekendDays} dias de fin de semana con trabajo.`
           : 'Ya hay datos para medir tus bloques de trabajo.',
       metric: summary.averageBlockHours === null ? undefined : `${summary.averageBlockHours}h/bloque`,
     },
@@ -530,9 +613,9 @@ function buildActivityInsights(summary: PersonalAnalyticsSummary['activities']):
     {
       id: 'activity-top-category',
       area: 'activities',
-      severity: top.sharePercent >= 60 ? 'warning' : 'info',
-      title: `${top.name} concentra ${top.sharePercent}% del tiempo`,
-      detail: `Suma ${top.totalHours}h en el rango. Si mezcla trabajo, estudio y crecimiento, conviene separar actividades para conclusiones mas limpias.`,
+      severity: 'info',
+      title: `${top.name}: ${top.sharePercent}% de las horas etiquetadas`,
+      detail: `Suma ${top.totalHours}h registradas. El reparto incluye programacion en su categoria y no equivale a todo tu tiempo disponible.`,
       metric: `${top.totalHours}h`,
     },
   ];
@@ -544,12 +627,12 @@ function buildTrainingInsights(summary: PersonalAnalyticsSummary['training']): A
     {
       id: 'training-consistency',
       area: 'training',
-      severity: summary.sessionsPerWeek >= 3 ? 'positive' : 'warning',
-      title: `${summary.sessionsPerWeek} entrenamientos por semana`,
+      severity: 'info',
+      title: `${summary.sessionsPerWeek} dias de entrenamiento registrados por semana`,
       detail:
         summary.lastWorkoutDate === null
           ? 'Todavia no hay una ultima sesion identificable.'
-          : `Ultima sesion registrada: ${summary.lastWorkoutDate}. Antes de optimizar carga, conviene estabilizar frecuencia.`,
+          : `${summary.sessions} sesiones en ${summary.activeDays} fechas. Ultimo registro: ${summary.lastWorkoutDate}. Las semanas parciales se muestran por separado.`,
       metric: `${summary.sessions} sesiones`,
     },
   ];
@@ -563,11 +646,11 @@ function buildBodyInsights(summary: PersonalAnalyticsSummary['body']): Analytics
       id: 'body-goal-distance',
       area: 'body',
       severity: summary.trendVsGoal === 'unfavorable' ? 'warning' : 'info',
-      title: `Faltan ${Math.abs(summary.distanceToTargetKg)} kg para la meta`,
+      title: `Peso registrado: ${summary.currentWeightKg} kg; meta ${summary.targetWeightKg} kg`,
       detail:
         summary.deltaVsPreviousKg === null
-          ? `Meta actual: ${summary.targetWeightKg} kg.`
-          : `Cambio vs medicion anterior: ${summary.deltaVsPreviousKg > 0 ? '+' : ''}${summary.deltaVsPreviousKg} kg.`,
+          ? `Ultima medicion hace ${summary.measurementAgeDays} dias. No hay otra medicion en el rango para comparar.`
+          : `Ultima medicion hace ${summary.measurementAgeDays} dias. Cambio vs medicion anterior: ${summary.deltaVsPreviousKg > 0 ? '+' : ''}${summary.deltaVsPreviousKg} kg; dos puntos no confirman una tendencia sostenida.`,
       metric: `${summary.currentWeightKg} kg`,
     });
   }
@@ -576,4 +659,29 @@ function buildBodyInsights(summary: PersonalAnalyticsSummary['body']): Analytics
 
 function weekdayLabel(weekday: number): string {
   return ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][weekday] ?? `#${weekday}`;
+}
+
+function buildDataQualityWarnings(
+  entries: Awaited<ReturnType<PersonalAnalyticsRepository['findActivityTimes']>>,
+  categories: Awaited<ReturnType<PersonalAnalyticsRepository['findCategoryTotals']>>,
+  workouts: Awaited<ReturnType<PersonalAnalyticsRepository['findWorkoutSessions']>>,
+): AnalyticsInsight[] {
+  const warnings: AnalyticsInsight[] = [];
+  const overlapDays = [...groupByDate(entries).values()].filter((samples) =>
+    samples.reduce((sum, sample) => sum + durationHours(sample.startTime, sample.endTime, { allowCrossMidnight: true }), 0) - intervalUnionHours(samples) > 0.03,
+  ).length;
+  if (overlapDays) warnings.push({ id: 'overlapping-activities', area: 'data-quality', severity: 'info',
+    title: `${overlapDays} fechas con actividades simultaneas`,
+    detail: 'El calendario cuenta el tiempo compartido una vez; cada actividad conserva sus horas etiquetadas. Puede ser simultaneidad intencional.' });
+  const hoursWithoutTimes = round2(categories.reduce((sum, category) => sum + category.totalHours, 0) -
+    entries.reduce((sum, entry) => sum + durationHours(entry.startTime, entry.endTime, { allowCrossMidnight: true }), 0));
+  if (hoursWithoutTimes > 0.03) warnings.push({ id: 'manual-duration-only', area: 'data-quality', severity: 'info',
+    title: `${hoursWithoutTimes}h sin horario registrado`, detail: 'Se incluyen en las categorias como duracion manual, pero no se inventan horarios para el calendario.' });
+  const missingDuration = workouts.filter((workout) => workout.durationMinutes <= 0).length;
+  if (missingDuration) warnings.push({ id: 'training-duration-missing', area: 'data-quality', severity: 'warning',
+    title: `${missingDuration} sesiones sin duracion`, detail: 'Cuentan como sesiones registradas y se excluyen del promedio de duracion.' });
+  const duplicateDates = workouts.length - new Set(workouts.map((workout) => workout.workoutDate)).size;
+  if (duplicateDates) warnings.push({ id: 'multiple-training-sessions', area: 'data-quality', severity: 'info',
+    title: 'Hay fechas con varias sesiones', detail: 'La frecuencia cuenta dias distintos. Las sesiones se conservan para revisar si son entrenamientos separados o registros repetidos.' });
+  return warnings;
 }

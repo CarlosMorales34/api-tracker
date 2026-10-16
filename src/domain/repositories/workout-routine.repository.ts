@@ -1,6 +1,7 @@
 import { WorkoutRoutine } from '../entities/workout-routine.entity';
 
 export interface WorkoutRoutineExerciseInput {
+  exerciseId?: string | null;
   name: string;
   targetSets: number;
   targetReps: number;
@@ -11,6 +12,7 @@ export interface WorkoutRoutineExerciseInput {
 export interface WorkoutRoutineInput {
   name: string;
   weekday: number | null;
+  weekdays?: number[];
   exercises: WorkoutRoutineExerciseInput[];
 }
 

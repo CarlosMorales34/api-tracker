@@ -1,5 +1,10 @@
 # SQL — vitalis
 
+Para actualizar produccion con analytics y catalogo de ejercicios, seguir
+[`docs/prod-deploy-20261016.md`](../docs/prod-deploy-20261016.md). La migracion
+038 se ejecuta una sola vez: no es idempotente ni debe incluirse en un bucle
+que vuelva a ejecutar migraciones sobre una base existente.
+
 Scripts canónicos e idempotentes (usan `IF NOT EXISTS`, sin `DEFINER`) para
 crear el schema de `vitalis` en cualquier entorno (local, staging, prod).
 Correr en orden ascendente por prefijo numérico.

@@ -15,7 +15,9 @@ export class UpdateWorkoutRoutineUseCase {
     const updated = await this.workoutRoutineRepository.update(userId, routineId, {
       name: dto.name.trim(),
       weekday: dto.weekday,
+      weekdays: dto.weekdays,
       exercises: validExercises.map((ex) => ({
+        exerciseId: ex.exerciseId,
         name: ex.name.trim(),
         targetSets: ex.targetSets,
         targetReps: ex.targetReps,

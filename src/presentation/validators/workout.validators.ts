@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 const workoutExerciseSchema = z.object({
+  exerciseId: z.string().uuid().nullable().optional(),
   name: z.string().max(255),
   weight: z.number().nonnegative().nullable(),
   isBodyweight: z.boolean().optional().default(false),
