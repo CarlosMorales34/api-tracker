@@ -16,8 +16,8 @@ export interface TrainingStreak {
 //
 // Los días de la semana que el usuario marcó como descanso (ver
 // UserTrainingSettings) NO rompen la racha aunque no haya workout ese día --
-// tampoco suman al conteo, solo se saltan. Cualquier otro día sin entrenar
-// sí la corta, igual que antes.
+// tampoco suman al conteo, solo se saltan. Un día pasado sin entrenar y sin
+// descanso corta la racha. Hoy aún puede registrarse y no la corta.
 export class GetTrainingStreakUseCase {
   constructor(
     private readonly workoutRepository: WorkoutRepository,
@@ -37,15 +37,14 @@ export class GetTrainingStreakUseCase {
     const restWeekdays = new Set(settings?.restWeekdays ?? []);
 
     let streak = 0;
-    let cursor = todayDate;
-    for (;;) {
-      const cursorDateOnly = formatDateOnly(cursor);
-      if (daysWithWorkout.has(cursorDateOnly)) {
+    // Only scan the inclusive interval covered by the repository query.
+    for (let daysAgo = 0; daysAgo <= STREAK_LOOKBACK_DAYS; daysAgo++) {
+      const cursor = addDaysUTC(todayDate, -daysAgo);
+      if (daysWithWorkout.has(formatDateOnly(cursor))) {
         streak += 1;
-      } else if (!restWeekdays.has(cursor.getUTCDay())) {
+      } else if (daysAgo > 0 && !restWeekdays.has(cursor.getUTCDay())) {
         break;
       }
-      cursor = addDaysUTC(cursor, -1);
     }
 
     return { days: streak, hasData: streak > 0 };

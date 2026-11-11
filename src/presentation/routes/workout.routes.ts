@@ -118,7 +118,7 @@ export function workoutRoutes(controller: WorkoutController, authenticateMiddlew
    *   get:
    *     tags: [Workouts]
    *     summary: Racha de entrenamiento del usuario autenticado
-   *     description: Días consecutivos (hasta hoy) con al menos un entrenamiento registrado -- ya sea libre o a partir de una rutina, ambos cuentan igual. Distinta de la racha de Actividades del Home (esa cuenta registros de activity_logs).
+   *     description: Días consecutivos con entrenamiento, dentro de los últimos 120 días más hoy. Los días de descanso sin entrenamiento no interrumpen la racha. Si hoy aún no se registra una sesión, se conserva la racha de ayer. Distinta de la racha de Actividades del Home.
    *     security:
    *       - bearerAuth: []
    *     responses:
